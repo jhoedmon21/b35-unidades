@@ -17,3 +17,6 @@ dev-dist
 
 # sistema
 .DS_Store
+
+.vercel
+.env*
