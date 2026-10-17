@@ -1,0 +1,19 @@
+# dependencias
+node_modules
+
+# builds
+dist
+dev-dist
+.tsbuild
+*.tsbuildinfo
+
+# vercel
+.vercel
+
+# entorno
+.env
+.env.*
+*.local
+
+# sistema
+.DS_Store

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "//": "La PWA llama a /api del MISMO origen (cookies httpOnly sin CORS, como el proxy de dev). Vercel re-envía /api a la central desplegada.",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://b35-central.vercel.app/api/:path*"
+    }
+  ]
+}

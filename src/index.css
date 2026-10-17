@@ -1,0 +1,388 @@
+@import "tailwindcss";
+
+/* ============================================================
+   FuegoMap Unidades · Estilo blanco (mismo lenguaje que la central)
+   Paneles blancos sobre fondo gris azulado, spines de color por
+   función, números condensados gigantes y rojo SOLO para urgencia.
+   Contraste WCAG AA (mismos tokens calibrados de FuegoMap Admin).
+   ============================================================ */
+
+:root {
+  --bg: #edf1f5;
+  --bg-2: #e4eaf1;
+  --panel: #ffffff;
+  --panel2: #f3f6f9;
+  --panel3: #e7edf3;
+  --line: #d5dee7;
+  --line2: #6d879e;
+  --tx: #101a24;
+  --mut: #51677c;
+  --mut2: #556a82;
+  --fire: #c8291a;
+  --fire-deep: #b02417;
+  --crash: #8a5a06;
+  --rescue: #6a48d8;
+  --hydrant: #1669c4;
+  --ok: #157940;
+  --danger: #c01f1f;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg2: var(--bg-2);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel2);
+  --color-panel3: var(--panel3);
+  --color-line: var(--line);
+  --color-line2: var(--line2);
+  --color-tx: var(--tx);
+  --color-mut: var(--mut);
+  --color-mut2: var(--mut2);
+  --color-fire: var(--fire);
+  --color-firedeep: var(--fire-deep);
+  --color-crash: var(--crash);
+  --color-rescue: var(--rescue);
+  --color-hydrant: var(--hydrant);
+  --color-ok: var(--ok);
+  --color-danger: var(--danger);
+  --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-sans: "Barlow", system-ui, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* ---------- Base ---------- */
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(140% 90% at 50% -20%, #ffffff 0%, transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
+    color: var(--tx);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior: none;
+  }
+  h1,
+  h2,
+  h3,
+  .display {
+    font-family: var(--font-display);
+    letter-spacing: 0.012em;
+  }
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+  button:focus-visible,
+  a:focus-visible,
+  [tabindex]:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--crash) 85%, transparent);
+    outline-offset: 2px;
+    border-radius: 10px;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--fire) 30%, transparent);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line2) transparent;
+  }
+}
+
+/* ---------- Componentes ---------- */
+
+@layer components {
+  /* Botones: 56 px secundarios · 64 px acciones principales */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid var(--line2);
+    background: var(--panel2);
+    color: var(--tx);
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 17px;
+    letter-spacing: 0.03em;
+    padding: 0 18px;
+    min-height: 56px;
+    border-radius: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s ease-out, border-color 0.15s ease-out, transform 0.12s ease-out;
+  }
+  .btn:hover {
+    background: var(--panel3);
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .btn-lg {
+    min-height: 64px;
+    font-size: 19px;
+    border-radius: 14px;
+  }
+  .btn-primary {
+    background: var(--fire-deep);
+    border-color: color-mix(in srgb, var(--fire-deep) 80%, #fff);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background: color-mix(in srgb, var(--fire-deep) 88%, #000);
+  }
+  .btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--mut);
+  }
+  .btn-ghost:hover {
+    background: var(--panel2);
+    color: var(--tx);
+  }
+
+  /* Tarjetas con «spine» de función: el borde izquierdo codifica el tipo */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+  .spine-fire {
+    border-left: 4px solid var(--fire);
+  }
+  .spine-crash {
+    border-left: 4px solid var(--crash);
+  }
+  .spine-hydrant {
+    border-left: 4px solid var(--hydrant);
+  }
+  .spine-ok {
+    border-left: 4px solid var(--ok);
+  }
+  .spine-mut {
+    border-left: 4px solid var(--line2);
+  }
+  .spine-danger {
+    border-left: 4px solid var(--danger);
+  }
+
+  /* El único momento de brillo: la misión activa */
+  .glow-fire {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--fire) 30%, transparent),
+      0 0 28px -8px color-mix(in srgb, var(--fire) 40%, transparent);
+  }
+
+  /* Panel flotante sobre el mapa (cockpit) */
+  .float-panel {
+    background: color-mix(in srgb, var(--panel) 90%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid color-mix(in srgb, var(--line2) 45%, transparent);
+    border-radius: 16px;
+    box-shadow: 0 18px 40px rgb(16 26 36 / 0.18);
+  }
+
+  .input {
+    width: 100%;
+    min-height: 52px;
+    padding: 8px 14px;
+    font-size: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--line2);
+    background: var(--panel);
+    color: var(--tx);
+    transition: border-color 0.15s ease-out;
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--crash);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--crash) 18%, transparent);
+  }
+  .input::placeholder {
+    color: var(--mut2);
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-display);
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 3px 11px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  /* Números protagonistas del cockpit */
+  .num-hero {
+    font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 0.95;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+  }
+
+  .tag {
+    font-family: var(--font-display);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* Marcadores del mapa (divIcon) */
+  .fm-mk {
+    display: grid;
+    place-items: center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: #fff;
+  }
+  .fm-mk-unit {
+    width: 44px;
+    height: 30px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 2px solid var(--hydrant);
+    color: var(--tx);
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    box-shadow: 0 3px 10px rgb(16 26 36 / 0.35);
+  }
+  .fm-mk-depart {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px 7px 7px 0;
+    background: var(--panel);
+    border: 2px solid var(--mut);
+    font-size: 14px;
+    box-shadow: 0 3px 10px rgb(16 26 36 / 0.35);
+  }
+  .fm-mk-scene {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    background: var(--fire-deep);
+    border: 2px solid #fff;
+    font-size: 15px;
+    box-shadow: 0 3px 12px rgb(16 26 36 / 0.45);
+  }
+  .fm-mk-scene .ring {
+    position: absolute;
+    inset: -2px;
+    border-radius: 999px;
+    border: 2px solid color-mix(in srgb, var(--fire) 55%, transparent);
+    animation: fm-pulse 1.8s ease-out infinite;
+  }
+  .fm-mk-hyd {
+    width: 26px;
+    height: 26px;
+    font-size: 14px;
+    box-shadow: 0 2px 8px rgb(16 26 36 / 0.35);
+  }
+  .fm-mk-hyd.operativo {
+    border-radius: 999px;
+    background: var(--hydrant);
+    border: 2px solid #fff;
+  }
+  .fm-mk-hyd.mantenimiento {
+    border-radius: 5px;
+    background: var(--crash);
+    border: 2px solid #fff;
+  }
+  .fm-mk-hyd.fuera_servicio {
+    border-radius: 4px;
+    transform: rotate(45deg);
+    background: var(--danger);
+    border: 2px solid #fff;
+  }
+  .fm-mk-hyd.fuera_servicio > span {
+    transform: rotate(-45deg);
+  }
+
+  /* Atribución de MapLibre: discreta, legible */
+  .maplibregl-ctrl-attrib {
+    background: color-mix(in srgb, #ffffff 80%, transparent) !important;
+    color: var(--mut2) !important;
+    font-size: 11px !important;
+    border-radius: 6px 0 0 0;
+  }
+  .maplibregl-ctrl-attrib a {
+    color: var(--mut) !important;
+  }
+  .maplibregl-canvas {
+    outline: none;
+  }
+  .maplibregl-ctrl-attrib-button {
+    /* El botón «i» de la atribución compacta */
+    border: 1px solid var(--line) !important;
+  }
+}
+
+/* ---------- Animaciones (solo alerta y confirmación) ---------- */
+
+@keyframes fm-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes fm-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.anim-pulse {
+  animation: fm-pulse 1.8s ease-out infinite;
+}
+.anim-blink {
+  animation: fm-blink 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
