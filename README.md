@@ -59,12 +59,13 @@ con `sendPushToUnit()` (`src/lib/push.ts` de la central).
 
 ## Probar en una tablet real
 
-> **Modo táctico desde `bc733f0`:** la PWA ahora usa el tema navy oscuro
-> (estilo VIPER) con mapa OpenFreeMap «dark». Si prefieres el tema claro
-> anterior, revierte `src/index.css` (los tokens `:root`) y `MAP_STYLE`
-> en `src/components/TacticalMap.tsx` («dark» → «positron»). En
-> Sol directo a la pantalla el tema claro rinde mejor: ese es el motivo
-> de revertir, no el código.
+> **Interfaz «cabina VIPER» desde `fddcf785`:** la PWA usa el tema navy
+> oscuro con rejilla táctica, tarjetas de vidrio, chips y navegación con
+> pestaña activa roja, y mapa OpenFreeMap «dark». Si prefieres el tema
+> claro anterior, revierte `src/index.css` (tokens y capas de fondo),
+> `src/components/Shell.tsx` y `MAP_STYLE` en `TacticalMap.tsx`
+> («dark» → «positron»). En sol directo a la pantalla el tema claro
+> rinde mejor: ese es el motivo de revertir, no el código.
 >
 > La ficha del edificio se prueba con un despacho a ≤300 m de un preplan
 > activo: la misión muestra la tarjeta «Ficha del edificio» con su
