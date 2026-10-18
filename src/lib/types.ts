@@ -1,6 +1,7 @@
 // Tipos de FuegoMap Unidades (espejo de los DTO del backend)
 
 export type UnitStatus = "disponible" | "en_ruta" | "en_escena" | "regresando" | "fuera_servicio";
+export type UnitType = "bomba" | "cisterna" | "rescate" | "ambulancia" | "mando";
 export type HydrantSituation = "operativo" | "mantenimiento" | "fuera_servicio";
 
 export interface UserDTO {
@@ -14,7 +15,7 @@ export interface UnitDTO {
   id: number;
   code: string;
   name: string;
-  type: "bomba" | "cisterna" | "rescate" | "ambulancia" | "mando";
+  type: UnitType;
   status: UnitStatus;
   station: string | null;
   crew: number | null;
@@ -147,6 +148,14 @@ export interface AlertsResponse {
   serverTime: number;
 }
 
+/** Mensaje del chat corto entre central y unidad */
+export interface ChatMsg {
+  id: number;
+  from: "central" | "unidad";
+  body: string;
+  at: string;
+}
+
 /** Eventos SSE que llegan a la tablet */
 export interface UnitLiveEvent {
   type:
@@ -156,10 +165,15 @@ export interface UnitLiveEvent {
     | "unit"
     | "incident"
     | "hydrant"
+    | "chat"
     | "unit_logout";
   action?: string;
   id?: number;
   unitId?: number;
   title?: string;
+  /** Instantánea mínima incluida en los pings de GPS (evita refetch) */
+  unit?: { id: number; code: string; lat: number | null; lng: number | null; status: UnitStatus };
+  /** Mensaje de chat difundido en vivo (esta unidad) */
+  chat?: { id: number; unitId: number; from: "central" | "unidad"; body: string; at: string };
   at: number;
 }

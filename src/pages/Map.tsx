@@ -14,7 +14,7 @@ import type { Map as MlMap } from "maplibre-gl";
 import { Crosshair, NavigationArrow, X } from "@phosphor-icons/react";
 import { getMeta, setMeta } from "../db/db";
 import { cx } from "../lib/cx";
-import { fmtClock, fmtDistance, fmtMinutes, timeAgo } from "../lib/format";
+import { fmtClock, fmtDistance, fmtMinutes, hydrantLabel, timeAgo } from "../lib/format";
 import { departHtml, hydrantHtml, hydrantName, sceneHtml, unitHtml } from "../lib/markers";
 import { fetchRoute, haversineM, nearestRouteIndex, type RouteInfo } from "../lib/osrm";
 import TacticalMap, { type TacHazard, type TacMarker } from "../components/TacticalMap";
@@ -212,14 +212,25 @@ export default function MapPage() {
       .filter((h) => h.situation === "operativo")
       .slice(0, 3)
       .forEach((h, i) => numbered.set(h.id, i + 1));
-    return basicHydrants.map((h) => ({
+    const list: TacMarker[] = basicHydrants.map((h) => ({
       id: `hyd-${h.id}`,
       lat: h.lat,
       lng: h.lng,
       html: hydrantHtml(h.situation, numbered.get(h.id) != null ? String(numbered.get(h.id)) : undefined),
       label: hydrantName(h.code, h.id, h.situation),
     }));
-  }, [basicHydrants]);
+    // Pin de la emergencia: icono por tipo de incidente, pulsante (está activa)
+    if (basicIncident) {
+      list.unshift({
+        id: "scene",
+        lat: basicIncident.lat,
+        lng: basicIncident.lng,
+        html: sceneHtml(true, basicIncident.title),
+        label: basicIncident.title,
+      });
+    }
+    return list;
+  }, [basicHydrants, basicIncident]);
 
   function selectIncident(id: number) {
     setSearch({ incident: String(id) }, { replace: true });
@@ -271,8 +282,8 @@ export default function MapPage() {
         id: "scene",
         lat: scene.lat,
         lng: scene.lng,
-        html: sceneHtml(mission?.acceptedAt == null),
-        label: "Emergencia",
+        html: sceneHtml(mission?.acceptedAt == null, active?.incident.title),
+        label: active?.incident.title ?? "Emergencia",
       });
     }
     if (unitPos) {
@@ -280,13 +291,13 @@ export default function MapPage() {
         id: "unit",
         lat: unitPos.lat,
         lng: unitPos.lng,
-        html: unitHtml(unit?.code ?? "UNIDAD"),
+        html: unitHtml(unit?.code ?? "UNIDAD", { type: unit?.type, status: unit?.status }),
         label: `Unidad ${unit?.code ?? ""}`,
       });
     }
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrants, numbered, scene, unitPos, departure, unit?.code, mission?.acceptedAt]);
+  }, [hydrants, numbered, scene, unitPos, departure, unit?.code, unit?.type, unit?.status, mission?.acceptedAt, active?.incident.title]);
 
   const hazards = useMemo<TacHazard[]>(
     () =>
@@ -361,6 +372,7 @@ export default function MapPage() {
       <div className="relative h-full w-full overflow-hidden">
         <SceneMap
           center={{ lat: basicIncident.lat, lng: basicIncident.lng }}
+          title={basicIncident.title}
           markers={basicMarkers}
           zoom={15}
           onReady={setSceneMap}
@@ -409,7 +421,7 @@ export default function MapPage() {
                   .slice(0, 3)
                   .map((h, i) => (
                     <span key={h.id} className="pill text-hydrant">
-                      {i + 1} · {h.code ?? `H-${h.id}`} · {fmtDistance(h.meters)}
+                      {i + 1} · {hydrantLabel(h.code) ?? `Hidrante #${h.id}`} · {fmtDistance(h.meters)}
                     </span>
                   ))}
               </div>
@@ -531,7 +543,7 @@ export default function MapPage() {
                   .filter((h) => numbered.has(h.id))
                   .map((h, i) => (
                     <span key={h.id} className="pill text-hydrant">
-                      {i + 1} · {h.code ?? `H-${h.id}`} · {fmtDistance(h.meters)}
+                      {i + 1} · {hydrantLabel(h.code) ?? `Hidrante #${h.id}`} · {fmtDistance(h.meters)}
                     </span>
                   ))}
               </div>

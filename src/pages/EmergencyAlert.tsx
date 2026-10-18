@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { MapPin, Siren } from "@phosphor-icons/react";
 import SceneMap from "../components/SceneMap";
 import { db } from "../db/db";
-import { fmtClock, fmtDistance, timeAgo } from "../lib/format";
+import { fmtClock, fmtDistance, hydrantLabel, timeAgo } from "../lib/format";
 import { hydrantHtml, hydrantName } from "../lib/markers";
 import { haversineM } from "../lib/osrm";
 import { INCIDENT_STATUS_LABEL, SEVERITY_LABEL, incidentKind } from "../lib/status";
@@ -113,7 +113,7 @@ export function EmergencyAlertCard({ alert, fresh = false }: { alert: BasicIncid
       {/* Mapa de la escena con hidrantes cercanos (datos básicos, sin ruta) */}
       <div className="mt-2.5 overflow-hidden rounded-xl border border-line">
         <div className="h-[200px] w-full">
-          <SceneMap center={{ lat: alert.lat, lng: alert.lng }} markers={markers} zoom={15} />
+          <SceneMap center={{ lat: alert.lat, lng: alert.lng }} title={alert.title} markers={markers} zoom={15} />
         </div>
         <div className="border-t border-line bg-panel2 px-3 py-2">
           <div className="tag text-mut">Hidrantes cerca de la escena</div>
@@ -122,7 +122,7 @@ export function EmergencyAlertCard({ alert, fresh = false }: { alert: BasicIncid
               {near.map((h, i) => (
                 <span key={h.id} className="pill text-hydrant">
                   {h.situation === "operativo" ? `${i + 1} · ` : ""}
-                  {h.code ?? `H-${h.id}`} · {fmtDistance(h.meters)}
+                  {hydrantLabel(h.code) ?? `Hidrante #${h.id}`} · {fmtDistance(h.meters)}
                   {h.situation !== "operativo" ? " ⚠" : ""}
                 </span>
               ))}

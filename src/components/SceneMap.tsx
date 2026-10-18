@@ -9,6 +9,8 @@ import { sceneHtml } from "../lib/markers";
 
 interface Props {
   center: { lat: number; lng: number };
+  /** Título de la emergencia: elige el icono del pin de escena */
+  title?: string;
   /** Otros marcadores (hidrantes cercanos, etc.) */
   markers?: TacMarker[];
   /** Zoom fijo si no hay más puntos para encuadrar */
@@ -17,10 +19,10 @@ interface Props {
   onReady?: (map: MlMap) => void;
 }
 
-export default function SceneMap({ center, markers = [], zoom = 15, onReady }: Props) {
+export default function SceneMap({ center, title, markers = [], zoom = 15, onReady }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
-  const markersRef = useRef<MlMarker[]>([]);
+  const markersRef = useRef<Map<string, MlMarker> | null>(null);
   const [ready, setReady] = useState(false);
 
   // Init del mapa (una sola vez)
@@ -37,6 +39,7 @@ export default function SceneMap({ center, markers = [], zoom = 15, onReady }: P
       attributionControl: { compact: true },
     });
     mapRef.current = map;
+    markersRef.current = null;
     map.on("load", () => {
       setReady(true);
       onReady?.(map);
@@ -44,31 +47,75 @@ export default function SceneMap({ center, markers = [], zoom = 15, onReady }: P
     return () => {
       map.remove();
       mapRef.current = null;
-      markersRef.current = [];
+      markersRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Marcadores: escena (fuego) + los que llegan (hidrantes cercanos…)
+  // Marcadores: escena (icono por tipo) + los que llegan. Se REUSAN por id —
+  // solo se mueven o cambian de contenido; no se recrea el DOM en cada fix
+  // de GPS (sin parpadeo en la tablet).
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
-    for (const m of markersRef.current) m.remove();
-    markersRef.current = [];
+    const store = markersRef.current ?? (markersRef.current = new Map());
 
-    const add = (html: string, lat: number, lng: number, onClick?: () => void) => {
+    // Escena (pin central): crear si falta; si ya está, actualizar icono/posición
+    const sceneMarker = store.get("__scene");
+    const sceneHtmlStr = sceneHtml(true, title);
+    if (!sceneMarker) {
       const el = document.createElement("div");
-      el.innerHTML = html;
-      const marker = new MlMarker({ element: el });
-      marker.setLngLat([lng, lat]).addTo(map);
-      if (onClick) el.addEventListener("click", onClick);
-      markersRef.current.push(marker);
-    };
+      el.innerHTML = sceneHtmlStr;
+      el.dataset.mkhtml = sceneHtmlStr;
+      el.setAttribute("role", "button");
+      el.setAttribute("aria-label", title ?? "Emergencia");
+      const marker = new MlMarker({ element: el }).setLngLat([center.lng, center.lat]).addTo(map);
+      store.set("__scene", marker);
+    } else {
+      const el = sceneMarker.getElement();
+      if (el.dataset.mkhtml !== sceneHtmlStr) {
+        el.innerHTML = sceneHtmlStr;
+        el.dataset.mkhtml = sceneHtmlStr;
+        el.setAttribute("aria-label", title ?? "Emergencia");
+      }
+      const cur = sceneMarker.getLngLat();
+      if (cur.lat !== center.lat || cur.lng !== center.lng) sceneMarker.setLngLat([center.lng, center.lat]);
+    }
 
-    add(sceneHtml(), center.lat, center.lng);
-    for (const m of markers) add(m.html, m.lat, m.lng, m.onClick);
+    // Bajas
+    const nextIds = new Set(markers.map((m) => m.id));
+    for (const [id, marker] of [...store]) {
+      if (id !== "__scene" && !nextIds.has(id)) {
+        marker.remove();
+        store.delete(id);
+      }
+    }
 
-    // Encuadre: emergencia + hidrantes
+    // Altas y actualizaciones
+    for (const m of markers) {
+      const existing = store.get(m.id);
+      if (existing) {
+        const el = existing.getElement();
+        if (el.dataset.mkhtml !== m.html) {
+          el.innerHTML = m.html;
+          el.dataset.mkhtml = m.html;
+        }
+        el.setAttribute("aria-label", m.label);
+        const cur = existing.getLngLat();
+        if (cur.lat !== m.lat || cur.lng !== m.lng) existing.setLngLat([m.lng, m.lat]);
+      } else {
+        const el = document.createElement("div");
+        el.innerHTML = m.html;
+        el.dataset.mkhtml = m.html;
+        el.setAttribute("role", "button");
+        el.setAttribute("aria-label", m.label);
+        if (m.onClick) el.addEventListener("click", m.onClick);
+        const marker = new MlMarker({ element: el }).setLngLat([m.lng, m.lat]).addTo(map);
+        store.set(m.id, marker);
+      }
+    }
+
+    // Encuadre: emergencia + hidrantes (solo cuando cambia el conjunto)
     const pts: [number, number][] = [
       [center.lng, center.lat],
       ...markers.map((m) => [m.lng, m.lat] as [number, number]),
@@ -78,6 +125,7 @@ export default function SceneMap({ center, markers = [], zoom = 15, onReady }: P
       for (const p of pts) b.extend(p);
       map.fitBounds(b, { padding: 56, maxZoom: 16.5, duration: 700 });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, markers, center.lat, center.lng]);
 
   return <div ref={containerRef} className="h-full w-full" />;

@@ -30,7 +30,7 @@ export interface TacHazard {
 }
 
 interface Props {
-  /** Marcadores a mostrar (se reconstruyen al cambiar el array) */
+  /** Marcadores a mostrar (se difunden por id; solo se mueve/recicla lo que cambia) */
   markers: TacMarker[];
   /** Tramo RESTANTE de la ruta (rojo con casing) */
   route?: [number, number][] | null;
@@ -134,21 +134,45 @@ export default function TacticalMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt]);
 
-  // Marcadores: reconstrucción simple (pocos elementos, ~20 máx.)
+  // Marcadores: se reusan (diff por id) y solo se mueven de lugar — no se
+  // reconstruye el DOM en cada fix de GPS (evita parpadeo y jank en la tablet).
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
     const store = markersRef.current ?? (markersRef.current = new Map());
-    for (const m of [...store.values()]) m.remove();
-    store.clear();
+
+    // Bajas: ids que ya no están en el array nuevo
+    const nextIds = new Set(markers.map((m) => m.id));
+    for (const [id, marker] of [...store]) {
+      if (!nextIds.has(id)) {
+        marker.remove();
+        store.delete(id);
+      }
+    }
+
+    // Altas y movimientos
     for (const m of markers) {
-      const el = document.createElement("div");
-      el.innerHTML = m.html;
-      el.setAttribute("role", "button");
-      el.setAttribute("aria-label", m.label);
-      if (m.onClick) el.addEventListener("click", m.onClick);
-      const marker = new MlMarker({ element: el }).setLngLat([m.lng, m.lat]).addTo(map);
-      store.set(m.id, marker);
+      const existing = store.get(m.id);
+      if (existing) {
+        const el = existing.getElement();
+        // El contenido cambia (p. ej. aceptación de misión re-estila el pin)
+        if (el.dataset.mkhtml !== m.html) {
+          el.innerHTML = m.html;
+          el.dataset.mkhtml = m.html;
+        }
+        el.setAttribute("aria-label", m.label);
+        const cur = existing.getLngLat();
+        if (cur.lat !== m.lat || cur.lng !== m.lng) existing.setLngLat([m.lng, m.lat]);
+      } else {
+        const el = document.createElement("div");
+        el.innerHTML = m.html;
+        el.dataset.mkhtml = m.html;
+        el.setAttribute("role", "button");
+        el.setAttribute("aria-label", m.label);
+        if (m.onClick) el.addEventListener("click", m.onClick);
+        const marker = new MlMarker({ element: el }).setLngLat([m.lng, m.lat]).addTo(map);
+        store.set(m.id, marker);
+      }
     }
   }, [ready, markers]);
 

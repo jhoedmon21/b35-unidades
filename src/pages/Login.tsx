@@ -21,8 +21,9 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Listado mínimo (código/nombre) para el selector: ruta pública del login.
     api
-      .get<{ units: UnitDTO[] }>("/api/units")
+      .get<{ units: UnitDTO[] }>("/api/units/auth/units")
       .then((d) => {
         setUnits(d.units);
         setUnitCode((current) => current || d.units[0]?.code || "");

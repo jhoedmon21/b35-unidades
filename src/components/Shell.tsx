@@ -4,6 +4,7 @@
 
 import { NavLink } from "react-router-dom";
 import {
+  ChatCircle,
   Fire,
   GearSix,
   MapTrifold,
@@ -21,14 +22,15 @@ const NAV: Array<[string, string, ReactNode]> = [
   ["/inicio", "Inicio", <House key="h" size={24} aria-hidden="true" />],
   ["/mision", "Misión", <Fire key="f" size={24} aria-hidden="true" />],
   ["/mapa", "Mapa", <MapTrifold key="m" size={24} aria-hidden="true" />],
+  ["/mensajes", "Chat", <ChatCircle key="c" size={24} aria-hidden="true" />],
   ["/ajustes", "Ajustes", <GearSix key="g" size={24} aria-hidden="true" />],
 ];
 
 export default function Shell({ children, fullBleed = false }: { children: ReactNode; fullBleed?: boolean }) {
-  const { unit, user, mission, alerts, connected, online, queue, notices, enterLogin } = useApp();
+  const { unit, user, mission, alerts, unreadChat, connected, online, queue, notices, enterLogin } = useApp();
   const status = unit ? UNIT_STATUS[unit.status] : null;
-  // El bombero sin unidad no conduce: no ve la pestaña Misión
-  const nav = unit ? NAV : NAV.filter(([to]) => to !== "/mision");
+  // El bombero sin unidad no conduce ni tiene chat con la central
+  const nav = unit ? NAV : NAV.filter(([to]) => to !== "/mision" && to !== "/mensajes");
 
   return (
     <div className="flex h-full flex-col bg-bg">
@@ -151,6 +153,9 @@ export default function Shell({ children, fullBleed = false }: { children: React
               )}
               {to === "/mapa" && alerts.length > 0 && (
                 <span className="inline-block h-2 w-2 rounded-full bg-fire anim-blink" aria-label="Emergencias activas" />
+              )}
+              {to === "/mensajes" && unreadChat > 0 && (
+                <span className="inline-block h-2 w-2 rounded-full bg-fire anim-blink" aria-label="Mensajes sin leer" />
               )}
             </span>
           </NavLink>

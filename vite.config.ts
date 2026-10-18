@@ -12,6 +12,9 @@ import { VitePWA } from "vite-plugin-pwa";
 // ============================================================
 
 export default defineConfig({
+  // base relativa: la PWA se sirve tal cual en su propio dominio Y bajo el
+  // prefijo /app/ de la central (mismo origen: cookies y SSE sin CORS).
+  base: "./",
   server: {
     port: 3100,
     host: true, // accesible desde la tablet por IP de la red
@@ -60,18 +63,19 @@ export default defineConfig({
         description: "Emergencias, hidrantes y equipo del vehículo — Compañía de Bomberos B-35 Camaná",
         lang: "es",
         dir: "ltr",
-        start_url: "/",
-        scope: "/",
+        // Rutas relativas: la app vive en su dominio o bajo /app/ de la central
+        start_url: "./",
+        scope: "./",
         display: "standalone",
         orientation: "any",
         theme_color: "#edf1f5",
         background_color: "#edf1f5",
         categories: ["productivity", "utilities"],
         icons: [
-          { src: "/icons/pwa-64.png", sizes: "64x64", type: "image/png" },
-          { src: "/icons/pwa-192.png", sizes: "192x192", type: "image/png" },
-          { src: "/icons/pwa-512.png", sizes: "512x512", type: "image/png" },
-          { src: "/icons/maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          { src: "icons/pwa-64.png", sizes: "64x64", type: "image/png" },
+          { src: "icons/pwa-192.png", sizes: "192x192", type: "image/png" },
+          { src: "icons/pwa-512.png", sizes: "512x512", type: "image/png" },
+          { src: "icons/maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
       workbox: {

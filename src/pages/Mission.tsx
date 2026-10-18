@@ -14,7 +14,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { api, ApiError } from "../lib/api";
-import { fmtClock, fmtDistance, timeAgo } from "../lib/format";
+import { fmtClock, fmtDistance, hydrantLabel, timeAgo } from "../lib/format";
 import { newOpId } from "../lib/op";
 import { incidentKind, SEVERITY_LABEL, UNIT_STATUS } from "../lib/status";
 import { useApp } from "../state/AppContext";
@@ -197,7 +197,7 @@ export default function Mission() {
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-hydrant/60 font-mono font-bold text-hydrant">
                   {i + 1}
                 </span>
-                <span className="flex-1 truncate">{h.code ?? `Hidrante #${h.id}`}</span>
+                <span className="flex-1 truncate">{hydrantLabel(h.code) ?? `Hidrante #${h.id}`}</span>
                 <span className="font-mono text-[13px] text-mut">{fmtDistance(h.meters)}</span>
               </li>
             ))}

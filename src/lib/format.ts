@@ -6,6 +6,17 @@ export function fmtDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)} km`;
 }
 
+/**
+ * Nombre visible del hidrante: el código «H-01» se lee «Hidrante 01»
+ * (mismo criterio que la central). Otros formatos quedan tal cual;
+ * sin código devuelve null para que el llamador use su alternativa.
+ */
+export function hydrantLabel(code: string | null | undefined): string | null {
+  if (!code) return null;
+  const m = /^H[-\s]?(\S+)$/i.exec(code.trim());
+  return m ? `Hidrante ${m[1]}` : code;
+}
+
 export function fmtMinutes(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "—";
   const min = Math.round(seconds / 60);

@@ -21,6 +21,7 @@ import { ensurePushSubscription, ensurePushSubscriptionPublic } from "../lib/pus
 import type {
   AlertsResponse,
   BasicIncidentDTO,
+  ChatMsg,
   DangerZoneDTO,
   HydrantDTO,
   MeResponse,
@@ -79,6 +80,13 @@ interface AppContextValue {
   refreshMe: () => Promise<void>;
   refreshMission: () => Promise<void>;
   refreshAlerts: () => Promise<void>;
+  /** Chat corto con la central (null = aún sin cargar) */
+  chat: ChatMsg[] | null;
+  /** Mensajes de la central sin leer */
+  unreadChat: number;
+  refreshChat: () => Promise<void>;
+  sendChatMsg: (body: string) => Promise<boolean>;
+  markChatSeen: () => void;
   /** Ir a la pantalla de credenciales (chofer, desde la vista pública) */
   enterLogin: () => void;
   /** Entrar como bombero sin credenciales (desde el ingreso) */
@@ -123,6 +131,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [missionDetail, setMissionDetail] = useState<MissionPayload | null>(null);
   const [alertMission, setAlertMission] = useState<MissionSummary | null>(null);
   const [alertsData, setAlertsData] = useState<AlertsResponse | null>(null);
+  const [chat, setChat] = useState<ChatMsg[] | null>(null);
+  const [unreadChat, setUnreadChat] = useState(0);
   const [activeAlert, setActiveAlert] = useState<BasicIncidentDTO | null>(null);
   const ackedRef = useRef<number[]>(loadAcks());
   const sirenRef = useRef<number | null>(null);
@@ -369,6 +379,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
           }
         } else if (ev.type === "unit" && ev.id === unit?.id) {
+          const snap = ev.unit;
+          if (snap) {
+            // Ping de GPS del propio evento: parche local sin consulta a la
+            // central. Si el estado cambió (o falta la unidad local) refresca
+            // todo para traer código/estado/dotación al día.
+            if (!unit || snap.status !== unit.status) {
+              const me = await api.get<MeResponse>("/api/units/me").catch(() => null);
+              if (me?.unit) {
+                setUnit(me.unit);
+                setMission(me.mission);
+              } else if (me) {
+                setUnit(null);
+                setMission(me.mission);
+              }
+            } else {
+              setUnit((prev) =>
+                prev && (prev.lat !== snap.lat || prev.lng !== snap.lng)
+                  ? { ...prev, lat: snap.lat, lng: snap.lng }
+                  : prev,
+              );
+            }
+            return;
+          }
           const me = await api.get<MeResponse>("/api/units/me").catch(() => null);
           if (me?.unit) {
             const fresh = me.unit;
@@ -393,6 +426,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // Con sesión: sync completo; sin ella: la alerta pública trae hidrantes
           if (unitRef.current) void syncNow();
           else void refreshAlerts();
+        } else if (ev.type === "chat" && ev.chat) {
+          // Mensaje de la central (lo propio ya lo agregó sendChatMsg con su id)
+          const msg = ev.chat;
+          if (msg.from === "central") {
+            notify(`💬 ${msg.body.slice(0, 80)}${msg.body.length > 80 ? "…" : ""}`, "info");
+            setUnreadChat((n) => n + 1);
+          }
+          setChat((prev) =>
+            prev && !prev.some((m) => m.id === msg.id) ? [...prev, msg] : prev,
+          );
         } else if (ev.type === "mission_unaccepted") {
           notify("La central fue avisada: nadie aceptó el despacho", "error");
         } else if (ev.type === "unit_logout") {
@@ -402,6 +445,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setMission(null);
           setMissionDetail(null);
           setAlertMission(null);
+          setChat(null);
+          setUnreadChat(0);
           stopAlarm();
           setPhase("anon");
         }
@@ -472,6 +517,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const sendLocationRef = useRef(sendLocation);
   sendLocationRef.current = sendLocation;
 
+  // ---------- Chat corto con la central ----------
+
+  const refreshChat = useCallback(async () => {
+    if (!unitRef.current) return;
+    try {
+      const d = await api.get<{ messages: ChatMsg[] }>("/api/units/me/chat");
+      setChat(d.messages ?? []);
+    } catch {
+      /* offline: se conserva lo que ya hay en pantalla */
+    }
+  }, []);
+
+  const sendChatMsg = useCallback(
+    async (body: string): Promise<boolean> => {
+      const clean = body.trim();
+      if (!clean) return false;
+      try {
+        const d = await api.post<{ message: ChatMsg }>("/api/units/me/chat", { body: clean });
+        setChat((prev) =>
+          prev && !prev.some((m) => m.id === d.message.id) ? [...prev, d.message] : [...(prev ?? []), d.message],
+        );
+        return true;
+      } catch (e) {
+        const msg = e instanceof ApiError ? e.message : "Sin conexión: el mensaje no llegó a la central";
+        notify(msg, "error");
+        return false;
+      }
+    },
+    [notify],
+  );
+
+  const markChatSeen = useCallback(() => setUnreadChat(0), []);
+
   // ---------- Login / logout ----------
 
   const login = useCallback(
@@ -487,6 +565,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setUnit(d.unit);
         setMission(null);
         setMissionDetail(null);
+        setChat(null);
+        setUnreadChat(0);
         setPhase("ready");
         void refreshAlerts(); // emergencias activas al entrar (todos los roles)
         if (d.unit) {
@@ -520,6 +600,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMission(null);
     setMissionDetail(null);
     setAlertMission(null);
+    setChat(null);
+    setUnreadChat(0);
     // Vuelve al ingreso: elegir «Soy bombero» o credenciales de chofer
     setPhase("anon");
   }, []);
@@ -650,6 +732,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshMe,
       refreshMission,
       refreshAlerts,
+      chat,
+      unreadChat,
+      refreshChat,
+      sendChatMsg,
+      markChatSeen,
       enterLogin,
       backToGuest,
       syncNow,

@@ -75,8 +75,9 @@ self.addEventListener("push", (event: PushEvent) => {
   const tag = isIncident && data.incidentId != null ? `incident-${data.incidentId}` : (data.kind ?? "fuegomap");
   const options: NotificationOptions & { renotify?: boolean; vibrate?: number[] } = {
     body: data.body ?? (isIncident ? "Emergencia sin detalles" : "Novedad de la central"),
-    icon: "/icons/pwa-192.png",
-    badge: "/icons/pwa-192.png",
+    // Relativos al SW: valen en el dominio propio y bajo /app/ de la central
+    icon: "icons/pwa-192.png",
+    badge: "icons/pwa-192.png",
     tag,
     renotify: true,
     // El despacho y una emergencia nueva no se descartan solos
@@ -91,7 +92,9 @@ self.addEventListener("push", (event: PushEvent) => {
 self.addEventListener("notificationclick", (event: NotificationEvent) => {
   event.notification.close();
   const payload = event.notification.data as PushPayload | undefined;
-  const target = payload?.kind === "dispatch" ? "/alerta" : "/";
+  // Ruta relativa al scope del SW: «/» en su dominio, «/app/» bajo la central
+  const base = new URL(self.registration.scope).pathname.replace(/\/$/, "");
+  const target = payload?.kind === "dispatch" ? `${base}/alerta` : base || "/";
   event.waitUntil(
     (async () => {
       const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });

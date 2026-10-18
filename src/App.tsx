@@ -9,6 +9,7 @@ import EmergencyAlert from "./pages/EmergencyAlert";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import MapPage from "./pages/Map";
+import Chat from "./pages/Chat";
 import Mission from "./pages/Mission";
 import Settings from "./pages/Settings";
 import Stub from "./pages/Stub";
@@ -54,6 +55,10 @@ export default function App() {
           element={unit ? <Shell><Mission /></Shell> : <Navigate to="/inicio" replace />}
         />
         <Route path="/alerta" element={<Alert />} />
+        <Route
+          path="/mensajes"
+          element={unit ? <Shell><Chat /></Shell> : <Navigate to="/inicio" replace />}
+        />
         <Route path="/ajustes" element={<Shell><Settings /></Shell>} />
         <Route
           path="/mapa"

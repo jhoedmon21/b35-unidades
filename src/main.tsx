@@ -19,10 +19,14 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 15_000 } },
 });
 
+// Basename del router: en su propio dominio es «/»; bajo el prefijo /app/
+// de la central (mismo origen vía rewrite) es «/app». Detectado por URL.
+const basename = window.location.pathname.startsWith("/app") ? "/app" : "/";
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename={basename}>
         <AppProvider>
           <App />
         </AppProvider>

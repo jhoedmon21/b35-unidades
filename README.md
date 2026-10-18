@@ -8,7 +8,7 @@ con señal inestable y mantiene todo el estado local en IndexedDB.
 |---|---|
 | **App** | React 18 + Vite + TypeScript · React Router · TanStack Query · Tailwind 4 |
 | **Offline** | IndexedDB (Dexie) + cola outbox idempotente · service worker Workbox |
-| **Mapa** | Leaflet + CartoDB Dark Matter con caché de teselas (etapa 3) |
+| **Mapa** | MapLibre GL + teselas OpenFreeMap «positron» con caché de teselas (etapa 3) |
 | **Tiempo real** | SSE con reconexión + consulta de respaldo cada 20 s si el stream cae |
 | **Notificaciones** | Web Push con VAPID (despachos con prioridad alta) |
 | **3D** | Three.js + @react-three/fiber (visor del vehículo, etapa 3) |
@@ -115,7 +115,7 @@ con `sendPushToUnit()` (`src/lib/push.ts` de la central).
 - **Etapa 1 (esta versión):** PWA instalable, sesión, estado de la unidad,
   cola sin internet + push + SSE, alerta de despacho, misión y cierre.
 - **Etapa 2:** galería con zoom fino, historial, pulir alertas.
-- **Etapa 3:** mapa Leaflet con ruta OSRM y teselas cacheadas, hidrantes
+- **Etapa 3:** mapa MapLibre con ruta OSRM y teselas cacheadas, hidrantes
   en campo (alta + estado con foto), visor 3D del vehículo con checklist.
 
 ## Pruebas
