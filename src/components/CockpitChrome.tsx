@@ -137,8 +137,14 @@ export default function CockpitChrome({
         )}
       </div>
 
-      {/* Píldoras de capas del topbar */}
-      <div className="pointer-events-none absolute left-3 top-12 z-[12]"
+      {/* Hora y fecha arriba-derecha, frente a la marca (no es un botón) */}
+      <div className="pointer-events-none absolute right-3 top-2 z-[12]">
+        <LiveClock />
+      </div>
+
+      {/* Píldoras de capas del topbar (ancho acotado: no invade la columna
+          de paneles de la derecha y envuelve en pantallas angostas) */}
+      <div className="pointer-events-none absolute left-3 top-12 z-[12] max-w-[calc(100vw-21rem)]"
       >
         <div className="pointer-events-auto flex flex-wrap gap-2">
           <button
@@ -159,7 +165,6 @@ export default function CockpitChrome({
           >
             <WarningDiamond size={15} aria-hidden="true" /> Zonas
           </button>
-          <LiveClock />
           {/* Paneles de comando: el mapa es la única ventana de la app */}
           <button
             type="button"

@@ -394,6 +394,16 @@
     border-radius: 6px;
     text-shadow: none;
   }
+  /* Pantallas angostas: marca más compacta y sin chip de comisaría
+     (igual que la maqueta de referencia a ≤760px) */
+  @media (max-width: 760px) {
+    .viper-brand {
+      font-size: 19px;
+    }
+    .viper-brand small {
+      display: none;
+    }
+  }
   .viper-chip {
     display: inline-flex;
     align-items: center;
