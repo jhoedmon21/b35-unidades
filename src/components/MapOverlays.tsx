@@ -21,11 +21,13 @@ import { testAlarm } from "../lib/alarm";
 import { usePwaUpdate } from "../lib/pwa";
 import { ensurePushSubscription, ensurePushSubscriptionPublic, permissionState } from "../lib/push";
 import { enqueueOp, listQueue } from "../db/queue";
+import { db } from "../db/db";
 import { newOpId } from "../lib/op";
-import { fmtClock, fmtDistance, timeAgo } from "../lib/format";
+import { fmtClock, fmtDistance, fmtMinutes, timeAgo } from "../lib/format";
 import { incidentKind, SEVERITY_LABEL } from "../lib/status";
 import { cx } from "../lib/cx";
 import { useApp } from "../state/AppContext";
+import type { EquipmentItemDTO } from "../lib/types";
 
 /* ---------- Marco común de panel flotante ---------- */
 
@@ -503,6 +505,235 @@ export function SettingsSheet({ onClose }: { onClose: () => void }) {
           <p className="text-[12px] text-mut">La app está actualizada e instalable.</p>
         )}
       </div>
+    </Sheet>
+  );
+}
+
+/* ---------- EQUIPO del vehículo (antes stub /equipo) ---------- */
+/* Dónde está cada material (compartimento de la máquina, c1..c6) y cómo
+   usarlo (notas precargadas por el jefe de guardia en la central).        */
+
+const CATEGORY_LABEL: Record<string, string> = {
+  extintor: "Extintor",
+  manguera: "Manguera",
+  herramienta: "Herramienta",
+  rescate: "Rescate",
+  medico: "Médico",
+  comunicacion: "Comunicación",
+  epp: "EPP",
+  equipo: "Equipo",
+};
+
+function compartimentoLabel(c: string | null): string {
+  const m = /^c(\d+)$/.exec(c ?? "");
+  return m ? `Compartimento ${m[1]}` : "Sin ubicación asignada";
+}
+
+/** Fecha local YYYY-MM-DD (toISOString usaría UTC y desfila el día). */
+function todayDay(): string {
+  return new Intl.DateTimeFormat("sv-SE").format(new Date());
+}
+
+export function EquipoSheet({ onClose }: { onClose: () => void }) {
+  const { unit, notify } = useApp();
+  const [items, setItems] = useState<EquipmentItemDTO[] | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    async function load() {
+      if (!unit) return;
+      try {
+        const data = await api.get<{ items: EquipmentItemDTO[] }>("/api/units/me/items");
+        if (live) setItems(data.items);
+      } catch {
+        // Sin señal: lo cargado por la última sincronización (IndexedDB)
+        try {
+          const local = await db.equipment.where("unitId").equals(unit.id).toArray();
+          if (live) setItems(local);
+        } catch {
+          if (live) setItems([]);
+        }
+      }
+    }
+    void load();
+    return () => {
+      live = false;
+    };
+  }, [unit]);
+
+  const groups = new Map<string, EquipmentItemDTO[]>();
+  for (const it of items ?? []) {
+    const key = it.compartment ?? "sin";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(it);
+  }
+  const orderedKeys = [...groups.keys()].sort((a, b) => {
+    if (a === "sin") return 1;
+    if (b === "sin") return -1;
+    return a.localeCompare(b, "es", { numeric: true });
+  });
+  const day = todayDay();
+
+  async function markChecked(it: EquipmentItemDTO) {
+    setBusyId(it.id);
+    const body = { day, opId: newOpId() };
+    try {
+      try {
+        await api.patch(`/api/units/me/equipment/${it.id}`, body);
+        notify(`${it.name} marcado revisado — registro enviado`, "success");
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 401) throw e;
+        // Sin señal: la marca se guarda en la cola (idempotente por opId)
+        await enqueueOp({
+          opId: body.opId,
+          kind: "equipment_check",
+          url: `/api/units/me/equipment/${it.id}`,
+          method: "PATCH",
+          body,
+        });
+        notify(`${it.name} marcado revisado — se envía al recuperar señal`, "info");
+      }
+      setItems((prev) => prev?.map((x) => (x.id === it.id ? { ...x, checkedToday: true } : x)) ?? prev);
+    } catch {
+      notify("No se pudo marcar el material", "error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <Sheet title="Equipo · Vehículo" onClose={onClose} side="left">
+      {items == null && <p className="text-[13px] text-mut">Cargando inventario…</p>}
+      {items != null && items.length === 0 && (
+        <p className="text-[13px] text-mut">El jefe de guardia aún no carga materiales para esta unidad.</p>
+      )}
+      {items != null &&
+        orderedKeys.map((key) => (
+          <section key={key}>
+            <div className="border-b border-line pb-1 text-[13px] font-bold">
+              {compartimentoLabel(key === "sin" ? null : key)}
+              <span className="ml-2 text-[11px] text-mut">{groups.get(key)!.length}</span>
+            </div>
+            <ul className="mt-1.5 space-y-2">
+              {groups.get(key)!.map((it) => (
+                <li key={it.id} className="rounded-lg border border-line bg-panel2 p-2.5">
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <strong className="text-[14.5px]">{it.name}</strong>
+                    {it.quantity > 1 && <span className="font-mono text-[12px] text-mut">×{it.quantity}</span>}
+                    <span className="pill text-mut">{CATEGORY_LABEL[it.category] ?? it.category}</span>
+                    {it.condition !== "bueno" && (
+                      <span className="pill text-warn">{it.condition === "malo" ? "⚠ malo" : "regular"}</span>
+                    )}
+                  </div>
+                  {it.notes?.trim() && (
+                    <p className="mt-1 text-[12.5px] leading-snug text-mut">
+                      <span className="text-mut2">Uso / ubicación: </span>
+                      {it.notes}
+                    </p>
+                  )}
+                  {it.checkedToday ? (
+                    <p className="mt-1 text-[12px] text-ok">✓ Revisado hoy</p>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-sm mt-1.5 py-1 text-[12.5px]"
+                      disabled={busyId === it.id}
+                      onClick={() => void markChecked(it)}
+                    >
+                      {busyId === it.id ? "Marcando…" : "Marcar revisado"}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+    </Sheet>
+  );
+}
+
+/* ---------- MISIONES cerradas de la unidad (antes stub /historial) ---------- */
+
+interface MissionRow {
+  id: number;
+  title: string;
+  address: string;
+  severity: string;
+  createdAt: string;
+  closedAt: string;
+  result: string;
+  injured: number;
+  observations?: string | null;
+}
+
+const RESULT_LABEL: Record<string, string> = {
+  controlado: "Controlado",
+  sin_novedad: "Sin novedad",
+  falsa_alarma: "Falsa alarma",
+  derivado: "Derivado",
+};
+
+const RESULT_CLASS: Record<string, string> = {
+  controlado: "text-ok",
+  sin_novedad: "text-ok",
+  falsa_alarma: "text-warn",
+  derivado: "text-mut",
+};
+
+export function MisionesSheet({ onClose }: { onClose: () => void }) {
+  const { unit } = useApp();
+  const [rows, setRows] = useState<MissionRow[] | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    async function load() {
+      if (!unit) return;
+      try {
+        const data = await api.get<{ missions: MissionRow[] }>("/api/units/me/missions");
+        if (live) setRows(data.missions);
+      } catch {
+        if (live) setRows([]);
+      }
+    }
+    void load();
+    return () => {
+      live = false;
+    };
+  }, [unit]);
+
+  return (
+    <Sheet title="Misiones cerradas" onClose={onClose}>
+      {rows == null && <p className="text-[13px] text-mut">Cargando historial…</p>}
+      {rows != null && rows.length === 0 && (
+        <p className="text-[13px] text-mut">Sin misiones cerradas todavía. Cuando cierres una emergencia aparecerá aquí.</p>
+      )}
+      {rows != null && rows.length > 0 && (
+        <ul className="space-y-2">
+          {rows.map((m) => {
+            const minutes = Math.max(
+              1,
+              Math.round((new Date(m.closedAt).getTime() - new Date(m.createdAt).getTime()) / 60000),
+            );
+            return (
+              <li key={m.id} className="rounded-lg border border-line bg-panel2 p-2.5">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <strong className="text-[14.5px]">{m.title}</strong>
+                  <span className={`pill ${RESULT_CLASS[m.result] ?? "text-mut"}`}>
+                    {RESULT_LABEL[m.result] ?? m.result}
+                  </span>
+                  {m.injured > 0 && <span className="pill text-danger">🚑 {m.injured} herido(s)</span>}
+                </div>
+                <p className="mt-0.5 text-[12.5px] text-mut">{m.address}</p>
+                <p className="mt-0.5 text-[11.5px] text-mut2">
+                  {fmtClock(m.createdAt)} · {fmtMinutes(minutes)} · cerrada {timeAgo(m.closedAt)}
+                </p>
+                {m.observations && <p className="mt-1 text-[12px] leading-snug text-mut">{m.observations}</p>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Sheet>
   );
 }

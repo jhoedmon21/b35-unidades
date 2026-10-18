@@ -11,12 +11,14 @@ import {
   ArrowsOut,
   ChatCircle,
   Clock,
+  ClockCounterClockwise,
   Compass,
   Crosshair,
   Drop,
   GearSix,
   NavigationArrow,
   WarningDiamond,
+  Wrench,
 } from "@phosphor-icons/react";
 import { cx } from "../lib/cx";
 import { UNIT_STATUS } from "../lib/status";
@@ -46,6 +48,9 @@ interface Props {
   /** Los paneles de comando son ESTADOS de /mapa: chat y ajustes flotan aquí */
   chatOpen?: boolean;
   onChatToggle?: () => void;
+  /** Equipo y misiones cerradas también son paneles flotantes */
+  onEquipoToggle?: () => void;
+  onMisionesToggle?: () => void;
   /** La ficha completa se abre como panel flotante (ya no existe /mision) */
   onFicha?: () => void;
   onSettingsToggle?: () => void;
@@ -95,6 +100,8 @@ export default function CockpitChrome({
   chatUnread = 0,
   chatOpen,
   onChatToggle,
+  onEquipoToggle,
+  onMisionesToggle,
   onFicha,
   onSettingsToggle,
   actions,
@@ -167,6 +174,22 @@ export default function CockpitChrome({
                 {chatUnread > 9 ? "9+" : chatUnread}
               </span>
             )}
+          </button>
+          <button
+            type="button"
+            className="viper-chip"
+            onClick={onEquipoToggle}
+            title="Equipo del vehículo: ubicación y uso"
+          >
+            <Wrench size={15} aria-hidden="true" /> Equipo
+          </button>
+          <button
+            type="button"
+            className="viper-chip"
+            onClick={onMisionesToggle}
+            title="Misiones cerradas por esta unidad"
+          >
+            <ClockCounterClockwise size={15} aria-hidden="true" /> Misiones
           </button>
           <button
             type="button"

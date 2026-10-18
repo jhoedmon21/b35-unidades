@@ -21,7 +21,7 @@ import { fetchRoute, haversineM, nearestRouteIndex, type RouteInfo } from "../li
 import TacticalMap, { type TacHazard, type TacMarker } from "../components/TacticalMap";
 import SceneMap from "../components/SceneMap";
 import CockpitChrome from "../components/CockpitChrome";
-import { ChatSheet, CloseSheet, FichaSheet, ReportSheet, SettingsSheet } from "../components/MapOverlays";
+import { ChatSheet, CloseSheet, EquipoSheet, FichaSheet, MisionesSheet, ReportSheet, SettingsSheet } from "../components/MapOverlays";
 import { INCIDENT_STATUS_LABEL, SEVERITY_LABEL, UNIT_STATUS, incidentKind } from "../lib/status";
 import type { BasicIncidentDTO, DangerZoneDTO, HydrantDTO, MissionPayload, UnitStatus } from "../lib/types";
 import { useApp } from "../state/AppContext";
@@ -97,6 +97,8 @@ export default function MapPage() {
   const [reportOpen, setReportOpen] = useState(false);
   const [fichaOpen, setFichaOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [equipoOpen, setEquipoOpen] = useState(false);
+  const [misionesOpen, setMisionesOpen] = useState(false);
   const [dispatchPhone, setDispatchPhone] = useState("");
   useEffect(() => {
     void getMeta<{ dispatcherPhone?: string }>("syncConfig").then((config) => {
@@ -303,7 +305,10 @@ export default function MapPage() {
           type="button"
           className={cx("viper-act", unit?.status === s && "primary")}
           disabled={unit?.status === s}
-          onClick={() => void setStatus(s)}
+          onClick={() => {
+            void setStatus(s);
+            notify(`Estado marcado: ${UNIT_STATUS[s].label}`, "info");
+          }}
         >
           {UNIT_STATUS[s].label}
         </button>
@@ -333,6 +338,8 @@ export default function MapPage() {
   const overlays = (
     <>
       {chatOpen && <ChatSheet onClose={() => setChatOpen(false)} />}
+      {equipoOpen && <EquipoSheet onClose={() => setEquipoOpen(false)} />}
+      {misionesOpen && <MisionesSheet onClose={() => setMisionesOpen(false)} />}
       {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
       {reportOpen && <ReportSheet onClose={() => setReportOpen(false)} />}
       {fichaOpen && <FichaSheet onClose={() => setFichaOpen(false)} />}
@@ -539,6 +546,8 @@ export default function MapPage() {
             exitNav={exitNav}
             chatOpen={chatOpen}
             onChatToggle={() => setChatOpen((v) => !v)}
+            onEquipoToggle={() => setEquipoOpen((v) => !v)}
+            onMisionesToggle={() => setMisionesOpen((v) => !v)}
             onSettingsToggle={() => setSettingsOpen((v) => !v)}
           />
           {overlays}
@@ -575,6 +584,8 @@ export default function MapPage() {
           exitNav={exitNav}
           chatOpen={chatOpen}
           onChatToggle={() => setChatOpen((v) => !v)}
+          onEquipoToggle={() => setEquipoOpen((v) => !v)}
+          onMisionesToggle={() => setMisionesOpen((v) => !v)}
           onSettingsToggle={() => setSettingsOpen((v) => !v)}
         />
         {overlays}
@@ -719,6 +730,8 @@ export default function MapPage() {
         chatUnread={unreadChat}
         chatOpen={chatOpen}
         onChatToggle={() => setChatOpen((v) => !v)}
+        onEquipoToggle={() => setEquipoOpen((v) => !v)}
+        onMisionesToggle={() => setMisionesOpen((v) => !v)}
         onSettingsToggle={() => setSettingsOpen((v) => !v)}
         onFicha={() => setFichaOpen(true)}
         actions={actions}
