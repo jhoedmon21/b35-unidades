@@ -5,15 +5,17 @@
 // Es la adaptación de la maqueta viper_dashboard.html conservando el
 // tamaño táctil (botones ≥40 px) y los contrastes AA de la app.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Map as MlMap } from "maplibre-gl";
 import {
   ArrowsOut,
+  ChatCircle,
   Clock,
   Compass,
   Crosshair,
   Drop,
   NavigationArrow,
+  Toolbox,
   WarningDiamond,
 } from "@phosphor-icons/react";
 import { Link } from "react-router-dom";
@@ -35,11 +37,15 @@ interface Props {
   /** Otras unidades despachadas al mismo incidente */
   otherUnits: MissionPayload["otherUnits"];
   navMode: boolean;
-  /** Capas activas (las píldoras del topbar) */
+  /** Píldoras de capas del topbar */
   showHydrants: boolean;
   showZones: boolean;
   setShowHydrants: (v: boolean) => void;
   setShowZones: (v: boolean) => void;
+  /** Avisos de chat sin leer (chip «Chat» del topbar) */
+  chatUnread?: number;
+  /** Panel de órdenes al pie de la columna derecha (solo con misión) */
+  actions?: ReactNode;
   /** Mover mapa a un punto (lng,lat — orden MapLibre) */
   flyTo: (lat: number, lng: number, zoom?: number) => void;
   /** Volver al encuadre automático: sale del modo conducción */
@@ -81,6 +87,8 @@ export default function CockpitChrome({
   showZones,
   setShowHydrants,
   setShowZones,
+  chatUnread = 0,
+  actions,
   flyTo,
   exitNav,
 }: Props) {
@@ -136,6 +144,18 @@ export default function CockpitChrome({
             <WarningDiamond size={15} aria-hidden="true" /> Zonas
           </button>
           <LiveClock />
+          {/* Comandos que viven en otras pantallas: cabina como tablero único */}
+          <Link to="/mensajes" className="viper-chip" title="Chat con la central">
+            <ChatCircle size={15} aria-hidden="true" /> Chat
+            {chatUnread > 0 && (
+              <span className="viper-badge" aria-label={`${chatUnread} sin leer`}>
+                {chatUnread > 9 ? "9+" : chatUnread}
+              </span>
+            )}
+          </Link>
+          <Link to="/equipo" className="viper-chip" title="Equipo del vehículo">
+            <Toolbox size={15} aria-hidden="true" /> Equipo
+          </Link>
         </div>
       </div>
 
@@ -254,10 +274,7 @@ export default function CockpitChrome({
                 <span
                   key={u.code}
                   className="viper-key"
-                  style={{
-                    color: "white",
-                    borderColor: `var(${UNIT_STATUS[u.status]?.varName ?? "--mut"})`,
-                  }}
+                  style={{ borderColor: `var(${UNIT_STATUS[u.status]?.varName ?? "--mut"})` }}
                 >
                   <strong style={{ color: `var(${UNIT_STATUS[u.status]?.varName ?? "--mut"})` }}>
                     {u.code}
@@ -268,6 +285,9 @@ export default function CockpitChrome({
             </div>
           </div>
         )}
+
+        {/* Órdenes de la misión: aceptar, estados de unidad, ir al cierre */}
+        {actions && <div className="viper-panel pointer-events-auto shrink-0">{actions}</div>}
       </div>
     </>
     </div>

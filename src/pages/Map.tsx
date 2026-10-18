@@ -9,7 +9,7 @@
 //    el botón «Navegar» de la misión entra aquí (ya no a Google Maps).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import type { Map as MlMap } from "maplibre-gl";
 import { CalendarBlank, Clock, Crosshair, NavigationArrow, Siren, X } from "@phosphor-icons/react";
 import { db, getMeta, setMeta } from "../db/db";
@@ -21,8 +21,8 @@ import { fetchRoute, haversineM, nearestRouteIndex, type RouteInfo } from "../li
 import TacticalMap, { type TacHazard, type TacMarker } from "../components/TacticalMap";
 import SceneMap from "../components/SceneMap";
 import CockpitChrome from "../components/CockpitChrome";
-import { INCIDENT_STATUS_LABEL, SEVERITY_LABEL, incidentKind } from "../lib/status";
-import type { BasicIncidentDTO, DangerZoneDTO, HydrantDTO, MissionPayload } from "../lib/types";
+import { INCIDENT_STATUS_LABEL, SEVERITY_LABEL, UNIT_STATUS, incidentKind } from "../lib/status";
+import type { BasicIncidentDTO, DangerZoneDTO, HydrantDTO, MissionPayload, UnitStatus } from "../lib/types";
 import { useApp } from "../state/AppContext";
 
 const HAZARD_COLOR: Record<DangerZoneDTO["level"], string> = {
@@ -77,7 +77,7 @@ function hazardsAhead(route: RouteInfo, fromIdx: number, zones: DangerZoneDTO[])
 }
 
 export default function MapPage() {
-  const { mission, missionDetail, position, unit, alerts, alertHydrants, alertZones, user } = useApp();
+  const { mission, missionDetail, position, unit, alerts, alertHydrants, alertZones, user, setStatus, acceptMission, unreadChat, notify } = useApp();
   const [search, setSearch] = useSearchParams();
   const [cached, setCached] = useState<MissionPayload | null>(null);
   const [route, setRoute] = useState<RouteInfo | null>(null);
@@ -267,6 +267,39 @@ export default function MapPage() {
       .sort((a, b) => a.meters - b.meters);
   }, [active, catalogAll, unitPos]);
 
+  // Toda la información cruda está en el mapa, también las ÓRDENES: aceptar
+  // el despacho, avanzar el estado de la unidad y saltar al cierre de misión.
+  const actions = active ? (
+    <>
+      {mission?.acceptedAt == null && (
+        <button
+          type="button"
+          className="viper-act primary"
+          onClick={() => {
+            void acceptMission();
+            notify("Despacho aceptado en el mapa", "success");
+          }}
+        >
+          🚨 Aceptar despacho
+        </button>
+      )}
+      {([ "en_ruta", "en_escena", "regresando" ] as UnitStatus[]).map((s) => (
+        <button
+          key={s}
+          type="button"
+          className={cx("viper-act", unit?.status === s && "primary")}
+          disabled={unit?.status === s}
+          onClick={() => void setStatus(s)}
+        >
+          {UNIT_STATUS[s].label}
+        </button>
+      ))}
+      <Link to="/mision" className="viper-act as-link">
+        Cerrar misión con formulario →
+      </Link>
+    </>
+  ) : null;
+
   // ---------- VISTA BÁSICA (sin misión): emergencias activas para todos ----------
 
   /** Emergencia seleccionada: ?incident=… o la más reciente */
@@ -416,6 +449,21 @@ export default function MapPage() {
             onReady={setMap}
           />
           <div className="float-panel absolute inset-x-3 bottom-3 p-4" aria-live="polite">
+            {/* Toda la información en el mapa: emergencias activas de la compañía */}
+            {alerts.length > 0 && (
+              <div className="mb-2 flex gap-1.5 overflow-x-auto pb-1">
+                {alerts.slice(0, 6).map((i) => (
+                  <button
+                    key={i.id}
+                    className="pill shrink-0 text-fire"
+                    onClick={() => selectIncident(i.id)}
+                    title="Ver en el mapa"
+                  >
+                    {incidentKind(i.title).icon} {i.title.length > 24 ? `${i.title.slice(0, 24)}…` : i.title}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0 flex-1 text-[15px]">
                 {unit
@@ -443,6 +491,7 @@ export default function MapPage() {
             hydrants={hydrants.slice(0, 6)}
             otherUnits={[]}
             navMode={false}
+            chatUnread={unreadChat}
             showHydrants={showHydrants}
             showZones={showZones}
             setShowHydrants={setShowHydrants}
@@ -474,6 +523,7 @@ export default function MapPage() {
           hydrants={basicHydrants}
           otherUnits={[]}
           navMode={false}
+          chatUnread={unreadChat}
           showHydrants={showHydrants}
           showZones={showZones}
           setShowHydrants={setShowHydrants}
@@ -619,6 +669,8 @@ export default function MapPage() {
         hydrants={active?.hydrants ?? []}
         otherUnits={active?.otherUnits ?? []}
         navMode={navMode}
+        chatUnread={unreadChat}
+        actions={actions}
         showHydrants={showHydrants}
         showZones={showZones}
         setShowHydrants={setShowHydrants}

@@ -420,7 +420,7 @@
   .viper-rail {
     position: absolute;
     left: 10px;
-    top: 100px;
+    top: 116px;
     z-index: 12;
     display: flex;
     flex-direction: column;
@@ -450,6 +450,52 @@
     font-weight: 700;
     letter-spacing: 0.06em;
     color: var(--mut2);
+  }
+  /* Órdenes de misión en el panel de la cabina (táctil compacto) */
+  .viper-act {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    min-height: 42px;
+    margin-top: 6px;
+    border: 1px solid color-mix(in srgb, var(--line2) 70%, transparent);
+    background: var(--panel2);
+    color: var(--tx);
+    border-radius: 8px;
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .viper-act:first-child {
+    margin-top: 0;
+  }
+  .viper-act.primary {
+    background: var(--fire-deep);
+    border-color: color-mix(in srgb, var(--fire) 40%, white);
+    color: #fff;
+  }
+  .viper-act:disabled {
+    opacity: 0.55;
+    cursor: default;
+  }
+  /* Badge del chip de chat (avisos sin leer) */
+  .viper-badge {
+    display: inline-block;
+    min-width: 18px;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: var(--fire);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 800;
+    line-height: 1.4;
+    text-align: center;
   }
   .viper-rail button {
     width: 46px;
