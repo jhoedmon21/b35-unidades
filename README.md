@@ -59,6 +59,17 @@ con `sendPushToUnit()` (`src/lib/push.ts` de la central).
 
 ## Probar en una tablet real
 
+> **Modo táctico desde `bc733f0`:** la PWA ahora usa el tema navy oscuro
+> (estilo VIPER) con mapa OpenFreeMap «dark». Si prefieres el tema claro
+> anterior, revierte `src/index.css` (los tokens `:root`) y `MAP_STYLE`
+> en `src/components/TacticalMap.tsx` («dark» → «positron»). En
+> Sol directo a la pantalla el tema claro rinde mejor: ese es el motivo
+> de revertir, no el código.
+>
+> La ficha del edificio se prueba con un despacho a ≤300 m de un preplan
+> activo: la misión muestra la tarjeta «Ficha del edificio» con su
+> contacto y sus fotos.
+
 > **En desarrollo el service worker está desactivado** (un precache viejo
 > puede secuestrar la página entre reinicios del dev server). Para probar
 > instalación, offline y notificaciones usa el build de producción:
@@ -128,4 +139,4 @@ npm test   # vitest: 8 pruebas de la cola (idempotencia, reintentos, purga)
 
 - Produccion: https://b35-unidades.vercel.app (proxy /api -> b35-central.vercel.app segun vercel.json)
 - Tambien servida bajo el dominio central: https://b35-central.vercel.app/app (mismo origen: cookies y SSE sin CORS; assets/manifest/SW relativos, base ./)
-- Repo: jhoedmon21/b35-unidades � Desplegar: vercel --prod (o push si GitHub esta conectado en Vercel)
+- Repo: jhoedmon21/b35-unidades � Desplegar: vercel --prod (o push si GitHub esta conectado en Vercel)
