@@ -90,10 +90,36 @@ export interface MissionPayload {
   incident: IncidentDTO;
   hydrants: Array<HydrantDTO & { meters: number }>;
   risks: Array<{ id: number; name: string; type: string; level: string; meters: number }>;
+  /** Ficha de riesgo precargada si la escena cae a ≤300 m (First Due) */
+  preplan: {
+    preplan: PreplanDTO;
+    meters: number;
+  } | null;
   otherUnits: Array<{ code: string; name: string; status: UnitStatus }>;
   reporterPhoneMasked: string;
   /** Punto de salida del vehículo (cuartel) — trayecto tipo Uber */
   departure: { lat: number; lng: number; station: string; at: string | null } | null;
+}
+
+/** Ficha de riesgo (preplan) — espejo de la central */
+export interface PreplanDTO {
+  id: number;
+  title: string;
+  address: string;
+  lat: number;
+  lng: number;
+  status: "activo" | "inactivo";
+  layout: string | null;
+  hazards: string | null;
+  keysInfo: string | null;
+  waterSources: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  notes: string | null;
+  /** URLs de fotos del edificio (JSON de strings) */
+  photos: string[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DangerZoneDTO {

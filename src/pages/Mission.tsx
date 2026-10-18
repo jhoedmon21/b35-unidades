@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  Buildings,
   MapPin,
   NavigationArrow,
   PhoneCall,
@@ -28,6 +29,17 @@ const RESULTS: Array<[string, string]> = [
   ["falsa_alarma", "Falsa alarma"],
   ["derivado", "Derivada a otra unidad"],
 ];
+
+/** Fila de la ficha del edificio (se oculta si el dato no está precargado) */
+function Row({ label, value }: { label: string; value: string | null }) {
+  if (!value?.trim()) return null;
+  return (
+    <li>
+      <span className="text-mut2">{label}: </span>
+      <span>{value}</span>
+    </li>
+  );
+}
 
 export default function Mission() {
   const { mission, missionDetail, unit, online, setStatus, notify, refreshMe, refreshMission } = useApp();
@@ -151,6 +163,60 @@ export default function Mission() {
           </button>
         )}
       </section>
+
+      {/* Ficha del edificio (preplan) — la central la adjunta a la misión
+          cuando la escena cae a ≤300 m de un local precargado (First Due) */}
+      {missionDetail?.preplan && (
+        <section className="card spine-crash p-4">
+          <h2 className="tag mb-1 flex items-center gap-1.5 text-crash">
+            <Buildings size={15} aria-hidden="true" /> Ficha del edificio ·{" "}
+            <span className="font-mono">{fmtDistance(missionDetail.preplan.meters)}</span>
+          </h2>
+          <p className="display text-[15px] font-bold">{missionDetail.preplan.preplan.title}</p>
+          <p className="text-[12.5px] text-mut">{missionDetail.preplan.preplan.address}</p>
+
+          <ul className="mt-2.5 space-y-1.5 text-[13.5px]">
+            <Row label="Distribución (pisos, área, naves)" value={missionDetail.preplan.preplan.layout} />
+            <Row label="Peligros previstos" value={missionDetail.preplan.preplan.hazards} />
+            <Row label="Llaves de acceso / cortes" value={missionDetail.preplan.preplan.keysInfo} />
+            <Row label="Puntos de agua" value={missionDetail.preplan.preplan.waterSources} />
+            <Row label="Notas" value={missionDetail.preplan.preplan.notes} />
+          </ul>
+
+          {missionDetail.preplan.preplan.contactName && (
+            <p className="mt-2.5 border-t border-line pt-2.5 text-[13px]">
+              Contacto: <span className="font-semibold">{missionDetail.preplan.preplan.contactName}</span>
+              {missionDetail.preplan.preplan.contactPhone && (
+                <>
+                  {" · "}
+                  <a className="font-mono text-blue underline" href={`tel:${missionDetail.preplan.preplan.contactPhone}`}>
+                    {missionDetail.preplan.preplan.contactPhone}
+                  </a>
+                </>
+              )}
+            </p>
+          )}
+
+          {missionDetail.preplan.preplan.photos.length > 0 && (
+            <div className="-mx-1 mt-2.5 flex gap-2 overflow-x-auto px-1 pb-1">
+              {missionDetail.preplan.preplan.photos.map((url) => (
+                <button
+                  key={url}
+                  onClick={() => setZoomPhoto(url)}
+                  className="shrink-0"
+                  aria-label="Ampliar foto de la ficha"
+                >
+                  <img
+                    src={url}
+                    alt="Foto de la ficha del edificio"
+                    className="h-16 w-24 rounded border border-line object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Riesgos conocidos */}
       {missionDetail && missionDetail.risks.length > 0 && (

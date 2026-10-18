@@ -473,7 +473,7 @@ export default function MapPage() {
 
       {navMode && active && (
         <div className="absolute inset-x-0 top-0 z-10">
-          <div className="flex items-center gap-3 bg-fire px-4 py-3 text-white" role="status">
+          <div className="flex items-center gap-3 bg-firedeep px-4 py-3 text-white" role="status">
             <NavigationArrow size={26} className="shrink-0" aria-hidden="true" />
             <div className="min-w-0 flex-1">
               <div className="display text-[15px] font-bold tracking-wide">EN RUTA · SEGUIMIENTO GPS</div>

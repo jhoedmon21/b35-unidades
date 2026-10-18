@@ -1,7 +1,7 @@
-// Mapa táctico compartido (MapLibre GL + teselas OpenFreeMap «positron»,
-// las mismas sin API key que usa FuegoMap Admin). Gestiona marcadores,
-// la ruta Uber-style (recorrido en gris + restante en rojo), las zonas
-// peligrosas de la vía y el encuadre.
+// Mapa táctico compartido (MapLibre GL + teselas OpenFreeMap «dark»,
+// las mismas sin API key que usa FuegoMap Central en su modo oscuro).
+// Gestiona marcadores, la ruta Uber-style (recorrido en gris + restante
+// en rojo), las zonas peligrosas de la vía y el encuadre.
 //
 // Diagnóstico visible: si el estilo no carga o MapLibre lanza un error,
 // se muestra EN PANTALLA (con el mensaje exacto) en lugar de fallar en
@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowClockwise, WarningCircle } from "@phosphor-icons/react";
 import { LngLatBounds, Map as MlMap, Marker as MlMarker, getWorkerUrl, setWorkerUrl } from "maplibre-gl";
 
-export const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+export const MAP_STYLE = "https://tiles.openfreemap.org/styles/dark";
 
 export interface TacMarker {
   id: string;
