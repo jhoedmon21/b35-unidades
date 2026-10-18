@@ -1,19 +1,16 @@
-// Pantalla 1 — Inicio: dos caminos claros.
-// 🚒 CHOFER → correo, clave y unidad (misión completa con despacho).
-// 🧑‍🚒 BOMBERO → sin clave: alertas públicas, mapa e hidrantes.
-// Sin sesión la app SIEMPRE cae aquí; el arranque nunca se atasca.
+// Pantalla 1 — Ingreso CHOFER de la unidad: correo, clave y unidad
+// (misión completa con despacho). Sin sesión la app SIEMPRE cae aquí;
+// el arranque nunca se atasca.
 
 import { useEffect, useState } from "react";
 import { Flame } from "@phosphor-icons/react";
 import { api, ApiError } from "../lib/api";
 import { primeAudio } from "../lib/alarm";
-import { cx } from "../lib/cx";
 import { useApp } from "../state/AppContext";
 import type { UnitDTO } from "../lib/types";
 
 export default function Login() {
-  const { login, busy, backToGuest } = useApp();
-  const [bombero, setBombero] = useState(false); // modo bombero: sin clave
+  const { login, busy } = useApp();
   const [email, setEmail] = useState("conductor@fuegomap.pe");
   const [password, setPassword] = useState("");
   const [unitCode, setUnitCode] = useState("");
@@ -34,10 +31,6 @@ export default function Login() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     primeAudio(); // primer gesto: habilita la sirena
-    if (bombero) {
-      backToGuest(); // vista pública de emergencias, sin sesión
-      return;
-    }
     setError(null);
     try {
       await login(email.trim(), password, unitCode);
@@ -82,79 +75,47 @@ export default function Login() {
           </div>
 
           <form className="card spine-fire space-y-4 p-5" onSubmit={submit}>
-            {/* Rol de hoy: chofer (conduce) o bombero (solo alertas, sin clave) */}
-            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Cómo ingresas hoy">
-              <button
-                type="button"
-                aria-pressed={!bombero}
-                className={cx("btn", bombero && "border-line")}
-                style={!bombero ? { background: "var(--fire)", borderColor: "var(--fire)", color: "#071120" } : undefined}
-                onClick={() => setBombero(false)}
-              >
-                🚒 Chofer
-              </button>
-              <button
-                type="button"
-                aria-pressed={bombero}
-                className={cx("btn", !bombero && "border-line")}
-                style={bombero ? { background: "var(--rescue)", borderColor: "var(--rescue)", color: "#071120" } : undefined}
-                onClick={() => setBombero(true)}
-              >
-                🧑‍🚒 Bombero
-              </button>
+            <div>
+              <label className="tag mb-1 block text-mut" htmlFor="email">Correo</label>
+              <input
+                id="email"
+                className="input"
+                type="email"
+                inputMode="email"
+                autoComplete="username"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
-
-            {bombero ? (
-              <div className="rounded-xl bg-panel2 px-3 py-3 text-[13px] leading-relaxed text-mut">
-                Modo <strong className="text-tx">bombero</strong>: alertas de todas
-                las emergencias de la compañía, mapa básico e hidrantes cercanos —
-                <strong className="text-tx"> sin clave y sin unidad</strong>.
-              </div>
-            ) : (
-              <>
-                <div>
-                  <label className="tag mb-1 block text-mut" htmlFor="email">Correo</label>
-                  <input
-                    id="email"
-                    className="input"
-                    type="email"
-                    inputMode="email"
-                    autoComplete="username"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="tag mb-1 block text-mut" htmlFor="password">Clave</label>
-                  <input
-                    id="password"
-                    className="input"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="tag mb-1 block text-mut" htmlFor="unit">Tu unidad hoy</label>
-                  <select
-                    id="unit"
-                    className="input"
-                    required
-                    value={unitCode}
-                    onChange={(e) => setUnitCode(e.target.value)}
-                  >
-                    {units.map((u) => (
-                      <option key={u.id} value={u.code}>
-                        {u.code} — {u.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </>
-            )}
+            <div>
+              <label className="tag mb-1 block text-mut" htmlFor="password">Clave</label>
+              <input
+                id="password"
+                className="input"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="tag mb-1 block text-mut" htmlFor="unit">Tu unidad hoy</label>
+              <select
+                id="unit"
+                className="input"
+                required
+                value={unitCode}
+                onChange={(e) => setUnitCode(e.target.value)}
+              >
+                {units.map((u) => (
+                  <option key={u.id} value={u.code}>
+                    {u.code} — {u.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {error && (
               <p
@@ -165,13 +126,8 @@ export default function Login() {
               </p>
             )}
 
-            <button
-              className={cx("btn btn-primary w-full")}
-              style={bombero ? { background: "var(--rescue)", borderColor: "var(--rescue)", color: "#071120" } : undefined}
-              type="submit"
-              disabled={busy.login}
-            >
-              {busy.login ? "Entrando…" : bombero ? "🧑‍🚒 VER EMERGENCIAS (sin clave)" : "Entrar"}
+            <button className="btn btn-primary w-full" type="submit" disabled={busy.login}>
+              {busy.login ? "Entrando…" : "Entrar"}
             </button>
 
             <div className="rounded-xl bg-panel2 px-3 py-2.5 text-[12.5px] leading-relaxed text-mut">
@@ -179,7 +135,7 @@ export default function Login() {
               <strong className="text-tx">bombero123</strong>
               <br />
               El chofer desbloquea la misión completa (ruta tipo Uber, ETA, fotos y
-              aceptación del despacho); el bombero solo ve la información pública.
+              aceptación del despacho).
             </div>
           </form>
         </div>

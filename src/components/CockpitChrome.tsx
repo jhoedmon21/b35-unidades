@@ -5,9 +5,11 @@
 // Es la adaptación de la maqueta viper_dashboard.html conservando el
 // tamaño táctil (botones ≥40 px) y los contrastes AA de la app.
 
+import { useEffect, useState } from "react";
 import type { Map as MlMap } from "maplibre-gl";
 import {
   ArrowsOut,
+  Clock,
   Compass,
   Crosshair,
   Drop,
@@ -28,8 +30,8 @@ interface Props {
   unitPos: { lat: number; lng: number } | null;
   /** La ficha que llega en la misión (tablero «Ver plan de emergencia» del mock) */
   preplan: MissionPayload["preplan"];
-  /** Hidrantes cercanos con distancia (misión o alerta básica) */
-  hydrants: Array<HydrantDTO & { meters: number }>;
+  /** Hidrantes cercanos con distancia (misión, alerta básica o espera) */
+  hydrants: Array<HydrantDTO & { meters?: number }>;
   /** Otras unidades despachadas al mismo incidente */
   otherUnits: MissionPayload["otherUnits"];
   navMode: boolean;
@@ -42,6 +44,28 @@ interface Props {
   flyTo: (lat: number, lng: number, zoom?: number) => void;
   /** Volver al encuadre automático: sale del modo conducción */
   exitNav: () => void;
+}
+
+const DOW = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+const MON = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SET", "OCT", "NOV", "DIC"];
+
+/** Chip de fecha+hora del mock VIPER GO, en vivo (segundo a segundo). */
+function LiveClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const hhmmss = now.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  return (
+    <span className="viper-clock" role="timer" aria-label={`Hora actual ${hhmmss}`}>
+      <Clock size={14} className="shrink-0" aria-hidden="true" />
+      <strong suppressHydrationWarning>{hhmmss}</strong>
+      <span suppressHydrationWarning>
+        {DOW[now.getDay()]} {String(now.getDate()).padStart(2, "0")}/{MON[now.getMonth()]}
+      </span>
+    </span>
+  );
 }
 
 export default function CockpitChrome({
@@ -111,6 +135,7 @@ export default function CockpitChrome({
           >
             <WarningDiamond size={15} aria-hidden="true" /> Zonas
           </button>
+          <LiveClock />
         </div>
       </div>
 
@@ -210,7 +235,7 @@ export default function CockpitChrome({
                   title={h.code || `Hidrante #${h.id}`}
                 >
                   <strong>{i + 1}</strong>
-                  <span>{fmtDistance(h.meters)}</span>
+                  <span>{h.meters != null ? fmtDistance(h.meters) : ""}</span>
                 </button>
               ))}
             </div>

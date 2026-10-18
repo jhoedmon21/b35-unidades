@@ -11,8 +11,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Map as MlMap } from "maplibre-gl";
-import { Crosshair, NavigationArrow, X } from "@phosphor-icons/react";
-import { getMeta, setMeta } from "../db/db";
+import { CalendarBlank, Clock, Crosshair, NavigationArrow, Siren, X } from "@phosphor-icons/react";
+import { db, getMeta, setMeta } from "../db/db";
+import { api } from "../lib/api";
 import { cx } from "../lib/cx";
 import { fmtClock, fmtDistance, fmtMinutes, hydrantLabel, timeAgo } from "../lib/format";
 import { departHtml, hydrantHtml, hydrantName, sceneHtml, unitHtml } from "../lib/markers";
@@ -104,9 +105,46 @@ export default function MapPage() {
     }
   }, [missionDetail]);
 
+  // Catálogo completo de hidrantes: el sync de entrada lo deja en IndexedDB
+  // (db.hydrants) — aquí se lee para la vista EN ESPERA, sin esperar a una
+  // emergencia. Refresco por red cuando hay conexión (endpoint público).
+  const [catalogAll, setCatalogAll] = useState<HydrantDTO[]>([]);
+  useEffect(() => {
+    void db.hydrants.toArray().then((rows) => {
+      if (rows.length) setCatalogAll(rows);
+    });
+    void (async () => {
+      try {
+        const { hydrants } = await api.get<{ hydrants: HydrantDTO[] }>("/api/hydrants");
+        setCatalogAll(hydrants);
+        await db.transaction("rw", db.hydrants, async () => {
+          await db.hydrants.clear();
+          await db.hydrants.bulkPut(hydrants);
+        });
+      } catch {
+        /* Sin conexión: vale el catálogo que bajó el sync */
+      }
+    })();
+  }, []);
+
   // Zonas peligrosas descargadas en el sync (offline-first)
   useEffect(() => {
-    void getMeta<DangerZoneDTO[]>("dangerZones").then((z) => setZones(z ?? []));
+    void getMeta<DangerZoneDTO[]>("dangerZones").then(async (z) => {
+      if (z && z.length) {
+        setZones(z);
+        return;
+      }
+      // Caché vacío (sync antiguo o nunca corrido): pedirlo una vez por red
+      try {
+        const { dangerZones } = await api.get<{ dangerZones: DangerZoneDTO[] }>("/api/danger-zones");
+        if (Array.isArray(dangerZones) && dangerZones.length) {
+          setZones(dangerZones);
+          void setMeta("dangerZones", dangerZones);
+        }
+      } catch {
+        /* Sin conexión: llegarán con el próximo sync */
+      }
+    });
   }, []);
 
   const active = missionDetail ?? (mission ? cached : null);
@@ -121,7 +159,7 @@ export default function MapPage() {
   // deja de reencuadrar por fitKey y SIGUE a la unidad con rumbo de avance.
   const navMode = search.get("nav") === "1" && Boolean(active);
   const navKey = unitPos ? `${unitPos.lat.toFixed(4)};${unitPos.lng.toFixed(4)}` : "none"; // ~11 m
-  const speedKmh = useSpeedKmh(navMode ? unitPos : null);
+  const speedKmh = useSpeedKmh(unitPos);
 
   // Volver al encuadre automático (botón «Vista» del raíl VIPER)
   function exitNav() {
@@ -221,8 +259,13 @@ export default function MapPage() {
 
   const hydrants = useMemo<Array<HydrantDTO & { meters?: number }>>(() => {
     if (active) return active.hydrants;
-    return [];
-  }, [active]);
+    // En espera: hidrantes del catálogo a ≤2 km del GPS (los más cercanos primero)
+    if (!unitPos || catalogAll.length === 0) return [];
+    return catalogAll
+      .map((h) => ({ ...h, meters: Math.round(haversineM(unitPos, h)) }))
+      .filter((h) => h.meters <= 2000)
+      .sort((a, b) => a.meters - b.meters);
+  }, [active, catalogAll, unitPos]);
 
   // ---------- VISTA BÁSICA (sin misión): emergencias activas para todos ----------
 
@@ -273,14 +316,13 @@ export default function MapPage() {
 
 
   const numbered = useMemo(() => {
-    if (!active) return new Map<number, number>();
     return new Map(
-      active.hydrants
+      hydrants
         .filter((h) => h.situation === "operativo")
         .slice(0, 3)
         .map((h, i) => [h.id, i + 1] as const),
     );
-  }, [active]);
+  }, [hydrants]);
 
   const bounds = useMemo<[number, number][]>(() => {
     const pts: [number, number][] = [];
@@ -374,10 +416,22 @@ export default function MapPage() {
             onReady={setMap}
           />
           <div className="float-panel absolute inset-x-3 bottom-3 p-4" aria-live="polite">
-            <div className="text-[15px]">
-              {unit
-                ? "Sin misión activa — al despachar, la ruta tipo Uber aparece aquí."
-                : "Cuando la central registre una emergencia, sonará la alerta y aquí verás el mapa del accidente."}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0 flex-1 text-[15px]">
+                {unit
+                  ? "Sin misión activa — hidrantes cercanos en el mapa. Al despachar, la ruta tipo Uber aparece aquí."
+                  : "Cuando la central registre una emergencia, sonará la alerta y aquí verás el mapa del accidente."}
+              </div>
+              {unitPos && (
+                <span
+                  className="viper-speed"
+                  role="status"
+                  aria-label={`Velocidad actual ${speedKmh} kilómetros por hora`}
+                >
+                  <strong>{speedKmh}</strong>
+                  <span>km/h</span>
+                </span>
+              )}
             </div>
           </div>
           <CockpitChrome
@@ -386,7 +440,7 @@ export default function MapPage() {
             scene={null}
             unitPos={unitPos}
             preplan={null}
-            hydrants={[]}
+            hydrants={hydrants.slice(0, 6)}
             otherUnits={[]}
             navMode={false}
             showHydrants={showHydrants}
@@ -482,20 +536,32 @@ export default function MapPage() {
                   : "vista básica — el chofer de la unidad asignada ve todos los datos"}
               </div>
             </div>
-            <button
-              className="btn shrink-0"
-              aria-label="Centrar en la emergencia"
-              disabled={!sceneMap}
-              onClick={() =>
-                sceneMap?.easeTo({
-                  center: [basicIncident.lng, basicIncident.lat],
-                  zoom: 15.5,
-                  duration: 500,
-                })
-              }
-            >
-              <Crosshair size={22} aria-hidden="true" /> Centrar
-            </button>
+            <div className="flex shrink-0 items-center gap-3">
+              {unitPos && (
+                <span
+                  className="viper-speed"
+                  role="status"
+                  aria-label={`Velocidad actual ${speedKmh} kilómetros por hora`}
+                >
+                  <strong>{speedKmh}</strong>
+                  <span>km/h</span>
+                </span>
+              )}
+              <button
+                className="btn"
+                aria-label="Centrar en la emergencia"
+                disabled={!sceneMap}
+                onClick={() =>
+                  sceneMap?.easeTo({
+                    center: [basicIncident.lng, basicIncident.lat],
+                    zoom: 15.5,
+                    duration: 500,
+                  })
+                }
+              >
+                <Crosshair size={22} aria-hidden="true" /> Centrar
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -566,11 +632,35 @@ export default function MapPage() {
         {scene ? (
           <div className="flex flex-wrap items-center gap-4">
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] font-semibold text-mut">
-                En camino · {active.incident.title}
+              {/* Cabecera estética VIPER GO: sirena + meta + título grande */}
+              <div className="flex items-start gap-3">
+                <span
+                  aria-hidden="true"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-fire bg-fire text-white"
+                  style={{ boxShadow: "0 0 0 4px color-mix(in srgb, var(--fire) 14%, transparent)" }}
+                >
+                  <Siren size={22} weight="fill" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11.5px] text-mut2">
+                    <span className="inline-flex items-center gap-1 font-semibold">
+                      <CalendarBlank size={13} aria-hidden="true" /> {fmtClock(active.incident.createdAt)}
+                    </span>
+                    <span className="inline-flex items-center gap-1 font-semibold">
+                      <Clock size={13} aria-hidden="true" /> {timeAgo(active.incident.createdAt)}
+                    </span>
+                    <small className="display rounded-md border border-line bg-panel2 px-1.5 py-0.5 text-[10.5px] font-bold tracking-wider uppercase">
+                      {unit?.station?.split(".").at(-1)?.trim() || "Camaná"}
+                    </small>
+                  </div>
+                  <div className="display mt-0.5 truncate text-[17.5px] font-bold leading-tight">
+                    {active.incident.title}
+                  </div>
+                  <div className="truncate text-[12.5px] text-mut">{active.incident.address}</div>
+                </div>
               </div>
-              <div className="mt-1 flex items-baseline gap-3">
-                {navMode && (
+              <div className="mt-2 flex items-baseline gap-3">
+                {unitPos && (
                   <span
                     className="viper-speed self-center"
                     role="status"
@@ -581,13 +671,13 @@ export default function MapPage() {
                   </span>
                 )}
                 {eta ? (
-                  <span className="num-hero text-[44px] leading-none text-fire">{eta}</span>
+                  <span className="num-hero text-[40px] leading-none text-fire">{eta}</span>
                 ) : (
                   <span className="text-[14px] text-mut">
                     {tripStart ? "Calculando ruta…" : "Esperando ubicación…"}
                   </span>
                 )}
-                {dist && <span className="num-hero text-[28px] leading-none opacity-80">{dist}</span>}
+                {dist && <span className="num-hero text-[24px] leading-none opacity-80">{dist}</span>}
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-mut2">
                 {routeBusy && <span>Actualizando…</span>}
