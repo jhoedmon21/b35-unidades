@@ -123,3 +123,9 @@ con `sendPushToUnit()` (`src/lib/push.ts` de la central).
 ```bash
 npm test   # vitest: 8 pruebas de la cola (idempotencia, reintentos, purga)
 ```
+
+## Despliegue
+
+- Produccion: https://b35-unidades.vercel.app (proxy /api -> b35-central.vercel.app segun vercel.json)
+- Tambien servida bajo el dominio central: https://b35-central.vercel.app/app (mismo origen: cookies y SSE sin CORS; assets/manifest/SW relativos, base ./)
+- Repo: jhoedmon21/b35-unidades · Desplegar: vercel --prod (o push si GitHub esta conectado en Vercel)
