@@ -380,6 +380,171 @@
     transform: rotate(-45deg);
   }
 
+  /* ============================================================
+     Cabina VIPER (pantalla de mapa): marca, topbar de píldoras,
+     raíl izquierdo, paneles de estado a la derecha y etiqueta
+     clara de la ficha. Todo sobre el mapa, sin bloquear el gesto.
+     ============================================================ */
+  .viper-brand {
+    z-index: 12;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 23px;
+    letter-spacing: -0.02em;
+    color: #f2f8f9;
+    text-shadow: 0 2px 10px rgb(0 0 0 / 0.75);
+  }
+  .viper-brand small {
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    color: #b9cbd2;
+    background: rgb(35 56 71 / 0.92);
+    padding: 4px 7px;
+    border-radius: 6px;
+    text-shadow: none;
+  }
+  .viper-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgb(255 255 255 / 0.12);
+    background: rgb(17 39 54 / 0.92);
+    color: #e6f2f4;
+    border-radius: 8px;
+    padding: 9px 12px;
+    min-height: 40px;
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgb(2 8 14 / 0.35);
+    cursor: pointer;
+  }
+  .viper-chip.on {
+    background: var(--fire-deep);
+    border-color: color-mix(in srgb, var(--fire) 45%, white);
+    color: #fff;
+  }
+  .viper-rail {
+    position: absolute;
+    left: 10px;
+    top: 100px;
+    z-index: 12;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .viper-rail button {
+    width: 46px;
+    height: 48px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgb(13 31 44 / 0.94);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: #c4d5dc;
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    box-shadow: 0 6px 16px rgb(2 8 14 / 0.3);
+    cursor: pointer;
+  }
+  .viper-panel {
+    width: 200px;
+    background: rgb(8 23 35 / 0.94);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 12px 30px rgb(2 8 14 / 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 11px 13px 10px;
+  }
+  .viper-panelhead {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #d9e7ec;
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .viper-panelhead span:last-child {
+    color: var(--mut2);
+    font-size: 10px;
+  }
+  .viper-keys {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    margin-top: 9px;
+  }
+  .viper-key {
+    background: rgb(20 43 58 / 0.95);
+    border: 1px solid rgb(82 105 118 / 0.7);
+    border-radius: 7px;
+    padding: 8px 4px 7px;
+    text-align: center;
+    font-family: var(--font-display);
+    font-weight: 800;
+    line-height: 1.1;
+  }
+  .viper-key strong {
+    display: block;
+    font-size: 15px;
+    color: var(--hydrant);
+  }
+  .viper-key span {
+    font-size: 10.5px;
+    color: var(--mut2);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .viper-veh {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 9px;
+  }
+  .viper-maplabel {
+    width: 200px;
+    background: #f2f5f4;
+    color: #23333a;
+    padding: 10px 12px;
+    border-radius: 5px;
+    box-shadow: 0 6px 20px rgb(2 8 14 / 0.5);
+    font-size: 11px;
+  }
+  .viper-maplabel strong {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.15;
+  }
+  .viper-maplabel .addr {
+    color: #657980;
+    font-size: 10.5px;
+    margin-top: 2px;
+  }
+  .viper-maplabel a {
+    display: inline-block;
+    color: #0b7a4b;
+    font-weight: 800;
+    margin-top: 5px;
+    text-decoration: none;
+  }
+
   /* Atribución de MapLibre: chip oscuro discreto, legible */
   .maplibregl-ctrl-attrib {
     background: color-mix(in srgb, var(--panel) 80%, transparent) !important;

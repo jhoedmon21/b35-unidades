@@ -19,6 +19,7 @@ import { departHtml, hydrantHtml, hydrantName, sceneHtml, unitHtml } from "../li
 import { fetchRoute, haversineM, nearestRouteIndex, type RouteInfo } from "../lib/osrm";
 import TacticalMap, { type TacHazard, type TacMarker } from "../components/TacticalMap";
 import SceneMap from "../components/SceneMap";
+import CockpitChrome from "../components/CockpitChrome";
 import { INCIDENT_STATUS_LABEL, SEVERITY_LABEL, incidentKind } from "../lib/status";
 import type { BasicIncidentDTO, DangerZoneDTO, HydrantDTO, MissionPayload } from "../lib/types";
 import { useApp } from "../state/AppContext";
@@ -84,6 +85,9 @@ export default function MapPage() {
   const [zones, setZones] = useState<DangerZoneDTO[]>([]);
   const [map, setMap] = useState<MlMap | null>(null);
   const [sceneMap, setSceneMap] = useState<MlMap | null>(null);
+  // Capas de la cabina (píldoras del topbar VIPER)
+  const [showHydrants, setShowHydrants] = useState(true);
+  const [showZones, setShowZones] = useState(true);
 
   // Posición de la unidad: GPS de la tablet; si no, la que conoce la central
   const unitPos = useMemo(() => {
@@ -118,6 +122,13 @@ export default function MapPage() {
   const navMode = search.get("nav") === "1" && Boolean(active);
   const navKey = unitPos ? `${unitPos.lat.toFixed(4)};${unitPos.lng.toFixed(4)}` : "none"; // ~11 m
   const speedKmh = useSpeedKmh(navMode ? unitPos : null);
+
+  // Volver al encuadre automático (botón «Vista» del raíl VIPER)
+  function exitNav() {
+    const next = new URLSearchParams(search);
+    next.delete("nav");
+    setSearch(next, { replace: true });
+  }
 
   // Ruta completa: salida (cuartel) → emergencia. Se calcula una vez por misión.
   useEffect(() => {
@@ -253,8 +264,8 @@ export default function MapPage() {
         label: basicIncident.title,
       });
     }
-    return list;
-  }, [basicHydrants, basicIncident]);
+    return list.filter((m) => (m.id.startsWith("hyd-") ? showHydrants : true));
+  }, [basicHydrants, basicIncident, showHydrants]);
 
   function selectIncident(id: number) {
     setSearch({ incident: String(id) }, { replace: true });
@@ -319,18 +330,18 @@ export default function MapPage() {
         label: `Unidad ${unit?.code ?? ""}`,
       });
     }
-    return list;
+    return list.filter((m) => (m.id.startsWith("hyd-") ? showHydrants : true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrants, numbered, scene, unitPos, departure, unit?.code, unit?.type, unit?.status, mission?.acceptedAt, active?.incident.title]);
+  }, [hydrants, numbered, scene, unitPos, departure, unit?.code, unit?.type, unit?.status, mission?.acceptedAt, active?.incident.title, showHydrants]);
 
   const hazards = useMemo<TacHazard[]>(
     () =>
-      (zones.length ? zones : alertZones).map((z) => ({
+      (showZones ? (zones.length ? zones : alertZones) : []).map((z) => ({
         id: `z${z.id}`,
         coords: z.path,
         color: HAZARD_COLOR[z.level],
       })),
-    [zones, alertZones],
+    [zones, alertZones, showZones],
   );
 
   // Tramos del mapa: restante (rojo) + recorrido (gris). Sin OSRM: línea directa.
@@ -363,29 +374,28 @@ export default function MapPage() {
             onReady={setMap}
           />
           <div className="float-panel absolute inset-x-3 bottom-3 p-4" aria-live="polite">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="text-[13px] font-semibold text-mut">
-                  {unit ? "Sin misión activa" : "Sin emergencias activas"}
-                </div>
-                <div className="text-[15px]">
-                  {unit
-                    ? "Mapa de la zona con sus tramos peligrosos — al despachar, la ruta tipo Uber aparece aquí."
-                    : "Cuando la central registre una emergencia, sonará la alerta y aquí verás el mapa del accidente."}
-                </div>
-              </div>
-              {unit && (
-                <button
-                  className="btn"
-                  aria-label="Centrar en mi unidad"
-                  disabled={!unitPos}
-                  onClick={() => unitPos && map?.easeTo({ center: [unitPos.lng, unitPos.lat], zoom: 16 })}
-                >
-                  <Crosshair size={22} aria-hidden="true" /> Centrar
-                </button>
-              )}
+            <div className="text-[15px]">
+              {unit
+                ? "Sin misión activa — al despachar, la ruta tipo Uber aparece aquí."
+                : "Cuando la central registre una emergencia, sonará la alerta y aquí verás el mapa del accidente."}
             </div>
           </div>
+          <CockpitChrome
+            unit={unit}
+            map={map}
+            scene={null}
+            unitPos={unitPos}
+            preplan={null}
+            hydrants={[]}
+            otherUnits={[]}
+            navMode={false}
+            showHydrants={showHydrants}
+            showZones={showZones}
+            setShowHydrants={setShowHydrants}
+            setShowZones={setShowZones}
+            flyTo={(lat, lng, zoom) => map?.flyTo({ center: [lng, lat], zoom })}
+            exitNav={exitNav}
+          />
         </div>
       );
     }
@@ -400,6 +410,22 @@ export default function MapPage() {
           markers={basicMarkers}
           zoom={15}
           onReady={setSceneMap}
+        />
+        <CockpitChrome
+          unit={unit}
+          map={sceneMap}
+          scene={{ lat: basicIncident.lat, lng: basicIncident.lng }}
+          unitPos={unitPos}
+          preplan={null}
+          hydrants={basicHydrants}
+          otherUnits={[]}
+          navMode={false}
+          showHydrants={showHydrants}
+          showZones={showZones}
+          setShowHydrants={setShowHydrants}
+          setShowZones={setShowZones}
+          flyTo={(lat, lng, zoom) => sceneMap?.flyTo({ center: [lng, lat], zoom })}
+          exitNav={exitNav}
         />
         <div
           className="float-panel absolute inset-x-3 bottom-3 max-h-[60%] overflow-y-auto p-4"
@@ -516,6 +542,24 @@ export default function MapPage() {
           </div>
         </div>
       )}
+
+      {/* Cabina VIPER: chrome de operaciones sobre el mapa */}
+      <CockpitChrome
+        unit={unit}
+        map={map}
+        scene={scene}
+        unitPos={unitPos}
+        preplan={active?.preplan ?? null}
+        hydrants={active?.hydrants ?? []}
+        otherUnits={active?.otherUnits ?? []}
+        navMode={navMode}
+        showHydrants={showHydrants}
+        showZones={showZones}
+        setShowHydrants={setShowHydrants}
+        setShowZones={setShowZones}
+        flyTo={(lat, lng, zoom) => map?.flyTo({ center: [lng, lat], zoom })}
+        exitNav={exitNav}
+      />
 
       {/* Panel cockpit flotante (estilo Uber) */}
       <div className="float-panel absolute inset-x-3 bottom-3 p-4" aria-live="polite">
