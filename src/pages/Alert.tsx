@@ -38,7 +38,7 @@ export default function Alert({ overlay = false }: { overlay?: boolean }) {
     await acceptMission();
     dismissAlert();
     notify("Despacho aceptado — buena respuesta", "success");
-    navigate("/mision");
+    navigate("/mapa");
   }
 
   return (

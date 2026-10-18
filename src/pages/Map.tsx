@@ -9,7 +9,7 @@
 //    el botón «Navegar» de la misión entra aquí (ya no a Google Maps).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import type { Map as MlMap } from "maplibre-gl";
 import { CalendarBlank, Clock, Crosshair, NavigationArrow, Siren, X } from "@phosphor-icons/react";
 import { db, getMeta, setMeta } from "../db/db";
@@ -21,6 +21,7 @@ import { fetchRoute, haversineM, nearestRouteIndex, type RouteInfo } from "../li
 import TacticalMap, { type TacHazard, type TacMarker } from "../components/TacticalMap";
 import SceneMap from "../components/SceneMap";
 import CockpitChrome from "../components/CockpitChrome";
+import { ChatSheet, CloseSheet, FichaSheet, ReportSheet, SettingsSheet } from "../components/MapOverlays";
 import { INCIDENT_STATUS_LABEL, SEVERITY_LABEL, UNIT_STATUS, incidentKind } from "../lib/status";
 import type { BasicIncidentDTO, DangerZoneDTO, HydrantDTO, MissionPayload, UnitStatus } from "../lib/types";
 import { useApp } from "../state/AppContext";
@@ -89,6 +90,19 @@ export default function MapPage() {
   // Capas de la cabina (píldoras del topbar VIPER)
   const [showHydrants, setShowHydrants] = useState(true);
   const [showZones, setShowZones] = useState(true);
+  // Paneles flotantes: el mapa es la ÚNICA ventana (chat, ajustes, reporte,
+  // ficha y cierre de misión viven aquí, no en páginas separadas)
+  const [chatOpen, setChatOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [fichaOpen, setFichaOpen] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [dispatchPhone, setDispatchPhone] = useState("");
+  useEffect(() => {
+    void getMeta<{ dispatcherPhone?: string }>("syncConfig").then((config) => {
+      setDispatchPhone(config?.dispatcherPhone ?? "");
+    });
+  }, []);
 
   // Posición de la unidad: GPS de la tablet; si no, la que conoce la central
   const unitPos = useMemo(() => {
@@ -294,12 +308,37 @@ export default function MapPage() {
           {UNIT_STATUS[s].label}
         </button>
       ))}
-      <Link to="/mision" className="viper-act as-link">
+      <button type="button" className="viper-act" onClick={() => setCloseOpen(true)}>
         Cerrar misión con formulario →
-      </Link>
+      </button>
+      <button type="button" className="viper-act" onClick={() => setReportOpen(true)}>
+        Reporte completo ▸
+      </button>
+      {active.preplan != null && (
+        <button type="button" className="viper-act" onClick={() => setFichaOpen(true)}>
+          Ficha del edificio ▣
+        </button>
+      )}
+      <a
+        className="viper-act as-link"
+        href={dispatchPhone ? `tel:${dispatchPhone}` : "tel:116"}
+        aria-label="Llamar al despachador"
+      >
+        📞 Llamar central
+      </a>
     </>
   ) : null;
 
+  // Los cinco paneles flotantes (antes eran ventanas separadas)
+  const overlays = (
+    <>
+      {chatOpen && <ChatSheet onClose={() => setChatOpen(false)} />}
+      {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
+      {reportOpen && <ReportSheet onClose={() => setReportOpen(false)} />}
+      {fichaOpen && <FichaSheet onClose={() => setFichaOpen(false)} />}
+      {closeOpen && <CloseSheet onClose={() => setCloseOpen(false)} />}
+    </>
+  );
   // ---------- VISTA BÁSICA (sin misión): emergencias activas para todos ----------
 
   /** Emergencia seleccionada: ?incident=… o la más reciente */
@@ -498,7 +537,11 @@ export default function MapPage() {
             setShowZones={setShowZones}
             flyTo={(lat, lng, zoom) => map?.flyTo({ center: [lng, lat], zoom })}
             exitNav={exitNav}
+            chatOpen={chatOpen}
+            onChatToggle={() => setChatOpen((v) => !v)}
+            onSettingsToggle={() => setSettingsOpen((v) => !v)}
           />
+          {overlays}
         </div>
       );
     }
@@ -530,7 +573,11 @@ export default function MapPage() {
           setShowZones={setShowZones}
           flyTo={(lat, lng, zoom) => sceneMap?.flyTo({ center: [lng, lat], zoom })}
           exitNav={exitNav}
+          chatOpen={chatOpen}
+          onChatToggle={() => setChatOpen((v) => !v)}
+          onSettingsToggle={() => setSettingsOpen((v) => !v)}
         />
+        {overlays}
         <div
           className="float-panel absolute inset-x-3 bottom-3 max-h-[60%] overflow-y-auto p-4"
           aria-live="polite"
@@ -670,6 +717,10 @@ export default function MapPage() {
         otherUnits={active?.otherUnits ?? []}
         navMode={navMode}
         chatUnread={unreadChat}
+        chatOpen={chatOpen}
+        onChatToggle={() => setChatOpen((v) => !v)}
+        onSettingsToggle={() => setSettingsOpen((v) => !v)}
+        onFicha={() => setFichaOpen(true)}
         actions={actions}
         showHydrants={showHydrants}
         showZones={showZones}
@@ -678,6 +729,7 @@ export default function MapPage() {
         flyTo={(lat, lng, zoom) => map?.flyTo({ center: [lng, lat], zoom })}
         exitNav={exitNav}
       />
+      {overlays}
 
       {/* Panel cockpit flotante (estilo Uber) */}
       <div className="float-panel absolute inset-x-3 bottom-3 p-4" aria-live="polite">

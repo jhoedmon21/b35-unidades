@@ -600,12 +600,20 @@
     font-size: 10.5px;
     margin-top: 2px;
   }
-  .viper-maplabel a {
+  .viper-maplabel a,
+  .viper-maplabel-link {
     display: inline-block;
     color: var(--ok);
     font-weight: 800;
     margin-top: 5px;
     text-decoration: none;
+  }
+  .viper-maplabel-link {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    font-size: 11px;
   }
 
   /* Atribución de MapLibre: chip oscuro discreto, legible */

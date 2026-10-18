@@ -14,11 +14,10 @@ import {
   Compass,
   Crosshair,
   Drop,
+  GearSix,
   NavigationArrow,
-  Toolbox,
   WarningDiamond,
 } from "@phosphor-icons/react";
-import { Link } from "react-router-dom";
 import { cx } from "../lib/cx";
 import { UNIT_STATUS } from "../lib/status";
 import { fmtDistance } from "../lib/format";
@@ -44,6 +43,12 @@ interface Props {
   setShowZones: (v: boolean) => void;
   /** Avisos de chat sin leer (chip «Chat» del topbar) */
   chatUnread?: number;
+  /** Los paneles de comando son ESTADOS de /mapa: chat y ajustes flotan aquí */
+  chatOpen?: boolean;
+  onChatToggle?: () => void;
+  /** La ficha completa se abre como panel flotante (ya no existe /mision) */
+  onFicha?: () => void;
+  onSettingsToggle?: () => void;
   /** Panel de órdenes al pie de la columna derecha (solo con misión) */
   actions?: ReactNode;
   /** Mover mapa a un punto (lng,lat — orden MapLibre) */
@@ -88,6 +93,10 @@ export default function CockpitChrome({
   setShowHydrants,
   setShowZones,
   chatUnread = 0,
+  chatOpen,
+  onChatToggle,
+  onFicha,
+  onSettingsToggle,
   actions,
   flyTo,
   exitNav,
@@ -144,18 +153,30 @@ export default function CockpitChrome({
             <WarningDiamond size={15} aria-hidden="true" /> Zonas
           </button>
           <LiveClock />
-          {/* Comandos que viven en otras pantallas: cabina como tablero único */}
-          <Link to="/mensajes" className="viper-chip" title="Chat con la central">
+          {/* Paneles de comando: el mapa es la única ventana de la app */}
+          <button
+            type="button"
+            className={cx("viper-chip", chatOpen && "on")}
+            onClick={onChatToggle}
+            aria-pressed={chatOpen}
+            title="Chat con la central"
+          >
             <ChatCircle size={15} aria-hidden="true" /> Chat
-            {chatUnread > 0 && (
+            {chatUnread > 0 && !chatOpen && (
               <span className="viper-badge" aria-label={`${chatUnread} sin leer`}>
                 {chatUnread > 9 ? "9+" : chatUnread}
               </span>
             )}
-          </Link>
-          <Link to="/equipo" className="viper-chip" title="Equipo del vehículo">
-            <Toolbox size={15} aria-hidden="true" /> Equipo
-          </Link>
+          </button>
+          <button
+            type="button"
+            className={cx("viper-chip", "text-mut")}
+            onClick={onSettingsToggle}
+            title="Ajustes: alarma, sincronización, sesión"
+            aria-label="Ajustes"
+          >
+            <GearSix size={15} aria-hidden="true" /> Ajustes
+          </button>
         </div>
       </div>
 
@@ -234,7 +255,9 @@ export default function CockpitChrome({
             <p className="addr">
               A <span className="font-bold">{fmtDistance(preplan.meters)}</span> de la escena
             </p>
-            <Link to="/mision">Ver plan de emergencia →</Link>
+            <button type="button" className="viper-maplabel-link" onClick={onFicha}>
+              Ver plan de emergencia →
+            </button>
           </div>
         )}
 
