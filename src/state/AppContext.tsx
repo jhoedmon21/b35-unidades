@@ -15,7 +15,7 @@ import {
   type ReactNode,
 } from "react";
 import { api, ApiError, getWithETag } from "../lib/api";
-import { stopAlarm } from "../lib/alarm";
+import { stopAlarm, startRing, stopRing } from "../lib/alarm";
 import { newOpId } from "../lib/op";
 import { ensurePushSubscription, ensurePushSubscriptionPublic } from "../lib/push";
 import type {
@@ -83,6 +83,13 @@ interface AppContextValue {
   unreadChat: number;
   refreshChat: () => Promise<void>;
   sendChatMsg: (body: string) => Promise<boolean>;
+  sendVoiceMsg: (audio: string, urgent: boolean, caption: string) => Promise<boolean>;
+  /** Llamado urgente sin audio: campana en la central con el texto del chofer */
+  callUrgent: (caption: string) => Promise<boolean>;
+  /** Llamado de VOZ en curso de la central (panel a pantalla completa) */
+  voiceCall: { url: string | null; caption: string | null } | null;
+  /** Atiende/descarta el llamado (detiene la campana) */
+  dismissVoiceCall: () => void;
   markChatSeen: () => void;
   /** Ir a la pantalla de credenciales (chofer, desde la vista pública) */
   enterLogin: () => void;
@@ -112,8 +119,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [missionDetail, setMissionDetail] = useState<MissionPayload | null>(null);
   const [alertMission, setAlertMission] = useState<MissionSummary | null>(null);
   const [alertsData, setAlertsData] = useState<AlertsResponse | null>(null);
+  /** Chat corto con la central — leal por unidad (ChatMsg) */
   const [chat, setChat] = useState<ChatMsg[] | null>(null);
   const [unreadChat, setUnreadChat] = useState(0);
+  /** Llamado de voz de la central a pantalla completa (null = ninguno) */
+  const [voiceCall, setVoiceCall] = useState<{ url: string | null; caption: string | null } | null>(null);
   const alertsEtagRef = useRef<string | null>(null);
   const [online, setOnline] = useState(true);
   const [queue, setQueue] = useState({ pending: 0, errors: 0 });
@@ -315,8 +325,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // Mensaje de la central (lo propio ya lo agregó sendChatMsg con su id)
           const msg = ev.chat;
           if (msg.from === "central") {
-            notify(`💬 ${msg.body.slice(0, 80)}${msg.body.length > 80 ? "…" : ""}`, "info");
-            setUnreadChat((n) => n + 1);
+            // LLAMADA:<url> = llamado de voz con campana; AUDIO:<url> = nota
+            if (msg.body.startsWith("LLAMADA:")) {
+              const rest = msg.body.slice(8);
+              const url = rest.startsWith("/api/media/") ? rest : null;
+              startRing();
+              setVoiceCall({ url, caption: url ? null : rest.trim() || null });
+              setUnreadChat((n) => n + 1);
+            } else if (msg.body.startsWith("AUDIO:")) {
+              notify("🎤 Nota de voz de la central — escúchala en el Chat", "info");
+              setUnreadChat((n) => n + 1);
+            } else {
+              notify(`💬 ${msg.body.slice(0, 80)}${msg.body.length > 80 ? "…" : ""}`, "info");
+              setUnreadChat((n) => n + 1);
+            }
           }
           setChat((prev) =>
             prev && !prev.some((m) => m.id === msg.id) ? [...prev, msg] : prev,
@@ -333,6 +355,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setChat(null);
           setUnreadChat(0);
           stopAlarm();
+          stopRing();
+          setVoiceCall(null);
           setPhase("anon");
         }
       })();
@@ -433,6 +457,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [notify],
   );
 
+  /** Nota de voz del chofer (o llamado urgente) hacia la central */
+  const sendVoiceMsg = useCallback(
+    async (audio: string, urgent: boolean, caption: string): Promise<boolean> => {
+      try {
+        const d = await api.post<{ message: ChatMsg }>("/api/units/me/chat", {
+          body: caption.trim() || (urgent ? "📞 Llamado de voz del chofer" : "🎤 Nota de voz del chofer"),
+          audio,
+          urgent,
+        });
+        setChat((prev) =>
+          prev && !prev.some((m) => m.id === d.message.id) ? [...prev, d.message] : [...(prev ?? []), d.message],
+        );
+        return true;
+      } catch (e) {
+        const msg = e instanceof ApiError ? e.message : "Sin conexión: la voz no llegó a la central";
+        notify(msg, "error");
+        return false;
+      }
+    },
+    [notify],
+  );
+
+  const dismissVoiceCall = useCallback(() => {
+    stopRing();
+    setVoiceCall(null);
+  }, []);
+
+  /** Llamado urgente SIN audio: texto + campana en la central */
+  const callUrgent = useCallback(
+    async (caption: string): Promise<boolean> => {
+      try {
+        const d = await api.post<{ message: ChatMsg }>("/api/units/me/chat", {
+          body: caption.trim() || "📞 Llamado de voz del chofer — atienda el chat",
+          urgent: true,
+        });
+        setChat((prev) =>
+          prev && !prev.some((m) => m.id === d.message.id) ? [...prev, d.message] : [...(prev ?? []), d.message],
+        );
+        return true;
+      } catch (e) {
+        const msg = e instanceof ApiError ? e.message : "Sin conexión: el llamado no llegó a la central";
+        notify(msg, "error");
+        return false;
+      }
+    },
+    [notify],
+  );
+
   const markChatSeen = useCallback(() => setUnreadChat(0), []);
 
   // ---------- Login / logout ----------
@@ -478,6 +550,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     stopAlarm();
+    stopRing();
+    setVoiceCall(null);
     await api.post("/api/units/auth/logout").catch(() => {});
     setUser(null);
     setUnit(null);
@@ -616,8 +690,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshAlerts,
       chat,
       unreadChat,
+      voiceCall,
+      dismissVoiceCall,
       refreshChat,
       sendChatMsg,
+      sendVoiceMsg,
+      callUrgent,
       markChatSeen,
       enterLogin,
       backToGuest,
@@ -628,6 +706,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }),
     [
       phase, user, unit, mission, missionDetail, alertMission, alertsData,
+      chat, unreadChat, voiceCall, dismissVoiceCall, sendVoiceMsg, callUrgent,
       connected, online, position, queue, wakeLock, notices, busy,
       login, logout, setStatus, acceptMission, dismissAlert,
       refreshMe, refreshMission, refreshAlerts, enterLogin, backToGuest, syncNow, sendLocation, retryQueue, notify,

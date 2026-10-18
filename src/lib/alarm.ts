@@ -162,3 +162,67 @@ export function testAlarm(): void {
     }, 2200);
   }
 }
+
+// ---------- Llamado de VOZ de la central: «teléfono» en bucle ----------
+// Dos golpes agudos y pausa (el clásico ring-ring), suena hasta atender.
+let ringTimer: number | null = null;
+
+function ringCycle(): void {
+  if (ctx == null) return;
+  const t = ctx.currentTime;
+  const seq: Array<[number, number]> = [
+    [0, 0.13],
+    [0.22, 0.13],
+    [0.44, 0.3],
+  ];
+  for (const [offset, dur] of seq) {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(1120, t + offset);
+    if (offset > 0.3) {
+      // el tercer golpe desciende un poco: «ring-ring-DAA»
+      o.frequency.setValueAtTime(980, t + offset);
+    }
+    g.gain.setValueAtTime(0.0001, t + offset);
+    g.gain.linearRampToValueAtTime(0.34, t + offset + 0.015);
+    g.gain.linearRampToValueAtTime(0.0001, t + offset + dur);
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start(t + offset);
+    o.stop(t + offset + dur + 0.03);
+  }
+}
+
+function ringBurst(): void {
+  if ("vibrate" in navigator) navigator.vibrate([220, 340, 220, 2200]);
+}
+
+/** Campana de llamado de voz: suena hasta stopRing() */
+export function startRing(): void {
+  primeAudio();
+  try {
+    ringCycle();
+  } catch {
+    /* sin audio: el gesto previo de la sesión ya lo permitió */
+  }
+  armGestureUnlock();
+  ringBurst();
+  if (ringTimer != null) return;
+  ringTimer = window.setInterval(() => {
+    try {
+      ringCycle();
+    } catch {
+      /* silencio */
+    }
+    ringBurst();
+  }, 2800);
+}
+
+export function stopRing(): void {
+  if (ringTimer != null) {
+    clearInterval(ringTimer);
+    ringTimer = null;
+  }
+  if ("vibrate" in navigator) navigator.vibrate(0);
+}

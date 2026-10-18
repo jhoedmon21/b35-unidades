@@ -5,14 +5,17 @@
 //  una sola ventana, el mapa manda.
 // ============================================================
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BellRinging,
   DownloadSimple,
   MapPin,
+  Megaphone,
+  Microphone,
   PaperPlaneTilt,
   Power,
   Siren,
+  Stop,
   WifiHigh,
   X,
 } from "@phosphor-icons/react";
@@ -89,10 +92,17 @@ function Row({ label, value }: { label: string; value: string | null }) {
 /* ---------- CHAT con la central (antes /mensajes) ---------- */
 
 export function ChatSheet({ onClose }: { onClose: () => void }) {
-  const { chat, refreshChat, sendChatMsg, markChatSeen } = useApp();
+  const { chat, refreshChat, sendChatMsg, sendVoiceMsg, callUrgent, markChatSeen, notify } = useApp();
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  // ---------- Nota de voz del chofer + «Llamar» a la central ----------
+  const chunksRef = useRef<Blob[]>([]);
+  const recRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const secsRef = useRef(0);
+  const urgentNextRef = useRef(false);
+  const [recSecs, setRecSecs] = useState<number | null>(null);
 
   useEffect(() => {
     void refreshChat();
@@ -116,6 +126,88 @@ export function ChatSheet({ onClose }: { onClose: () => void }) {
     if (ok) setDraft("");
   }
 
+  const stopRec = useCallback(() => {
+    try {
+      if (recRef.current?.state === "recording") recRef.current.stop();
+    } catch {
+      /* ya parada */
+    }
+  }, []);
+
+  const startRec = useCallback(async () => {
+    try {
+      if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Este navegador no soporta grabar audio");
+      }
+      const mimeList = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
+      const mime = mimeList.find((t) => MediaRecorder.isTypeSupported(t)) ?? "";
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      secsRef.current = 0;
+      const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        const blob = new Blob(chunksRef.current, { type: rec.mimeType || mime || "audio/webm" });
+        const urgent = urgentNextRef.current;
+        urgentNextRef.current = false;
+        setRecSecs(null);
+        recRef.current = null;
+        void sendAudioBlob(blob, urgent);
+      };
+      rec.start();
+      recRef.current = rec;
+      setRecSecs(0);
+    } catch {
+      urgentNextRef.current = false;
+      notify("No se pudo usar el micrófono", "error");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Cronómetro + corte a los 90 s
+  useEffect(() => {
+    if (recSecs == null) return;
+    const id = window.setInterval(() => {
+      secsRef.current = secsRef.current + 1;
+      if (secsRef.current >= 90) stopRec();
+      else setRecSecs(secsRef.current);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [recSecs, stopRec]);
+
+  async function sendAudioBlob(blob: Blob, urgent: boolean) {
+    setBusy(true);
+    try {
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let bin = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      }
+      const mime = (blob.type || "audio/webm").split(";")[0];
+      const ok = await sendVoiceMsg(`data:${mime};base64,${btoa(bin)}`, urgent, draft.trim());
+      if (ok) setDraft("");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function callCentral() {
+    if (recSecs != null) {
+      // Grabación en curso → la nota se envía como LLAMADO urgente
+      urgentNextRef.current = true;
+      stopRec();
+      return;
+    }
+    void callUrgent(draft.trim());
+  }
+
   return (
     <Sheet title="Chat · Central" onClose={onClose}>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-lg border border-line bg-panel2 p-2.5">
@@ -123,28 +215,87 @@ export function ChatSheet({ onClose }: { onClose: () => void }) {
         {chat?.length === 0 && (
           <p className="text-[13px] text-mut">Sin mensajes. Escribe a la central — la respuesta llega aqui al instante.</p>
         )}
-        {chat?.map((m) => (
-          <div key={m.id} className={cx("flex", m.from === "unidad" ? "justify-end" : "justify-start")}>
-            <div
-              className={cx(
-                "max-w-[85%] rounded-xl border px-3 py-2 text-[14px] leading-snug",
-                m.from === "unidad" ? "border-fire/50 bg-fire/10 text-tx" : "border-line bg-panel text-tx",
-              )}
-            >
-              <p className="break-words whitespace-pre-wrap">{m.body}</p>
-              <p className="mt-0.5 text-right text-[10px] text-mut" suppressHydrationWarning>
-                {m.from === "unidad" ? "tú" : "central"} ·{" "}
-                {new Date(m.at).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
-              </p>
+        {chat?.map((m) => {
+          // AUDIO:<url> = nota de voz · LLAMADA:<url> = llamado urgente
+          const audioUrl = m.body.startsWith("AUDIO:") ? m.body.slice(6) : null;
+          const callRest = m.body.startsWith("LLAMADA:") ? m.body.slice(8) : null;
+          const callUrl = callRest?.startsWith("/api/media/") ? callRest : null;
+          const callCaption = callRest && !callUrl ? callRest.trim() : null;
+          const isVoice = audioUrl != null || callRest != null;
+          return (
+            <div key={m.id} className={cx("flex", m.from === "unidad" ? "justify-end" : "justify-start")}>
+              <div
+                className={cx(
+                  "max-w-[85%] rounded-xl border px-3 py-2 text-[14px] leading-snug",
+                  m.from === "unidad" ? "border-fire/50 bg-fire/10 text-tx" : "border-line bg-panel text-tx",
+                )}
+              >
+                {isVoice ? (
+                  <>
+                    <p className="flex items-center gap-1.5 text-[11.5px] font-bold">
+                      {callRest != null ? (
+                        <>
+                          <Megaphone size={13} className="text-fire" aria-hidden="true" /> Llamado urgente de voz
+                        </>
+                      ) : (
+                        <>
+                          <Microphone size={13} className="text-fire" aria-hidden="true" /> Nota de voz
+                        </>
+                      )}
+                    </p>
+                    {audioUrl && (
+                      <audio className="mt-2 w-[240px]" controls preload="none" src={audioUrl}>
+                        Tu navegador no reproduce este audio.
+                      </audio>
+                    )}
+                    {callUrl && (
+                      <audio className="mt-2 w-[240px]" controls preload="none" autoPlay src={callUrl}>
+                        Tu navegador no reproduce este audio.
+                      </audio>
+                    )}
+                    {callCaption && (
+                      <p className="mt-1 break-words whitespace-pre-wrap">{callCaption}</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="break-words whitespace-pre-wrap">{m.body}</p>
+                )}
+                <p className="mt-0.5 text-right text-[10px] text-mut" suppressHydrationWarning>
+                  {m.from === "unidad" ? "tú" : "central"} ·{" "}
+                  {new Date(m.at).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={bottomRef} />
       </div>
 
       <form onSubmit={(e) => void submit(e)} className="flex shrink-0 items-center gap-2 pt-1">
+        {recSecs != null ? (
+          <button
+            type="button"
+            className="btn shrink-0 bg-fire px-3.5 py-2.5 text-white"
+            onClick={stopRec}
+            title="Detener la grabación y mandarla a la central"
+            aria-label="Detener grabación"
+          >
+            <Stop size={15} weight="fill" aria-hidden="true" /> {recSecs}s
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="btn shrink-0 px-3 py-2.5"
+            onClick={() => void startRec()}
+            title="Grabar una nota de voz (toca de nuevo para mandarla)"
+            aria-label="Grabar nota de voz"
+            disabled={busy}
+          >
+            <Microphone size={16} aria-hidden="true" />
+          </button>
+        )}
         <input
-          className="input flex-1 py-2.5 text-[14px]"
+          className="input min-w-0 flex-1 py-2.5 text-[14px]"
           placeholder="Mensaje a la central…"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -152,6 +303,15 @@ export function ChatSheet({ onClose }: { onClose: () => void }) {
           autoComplete="off"
           maxLength={1000}
         />
+        <button
+          type="button"
+          className="btn shrink-0 bg-fire px-3 py-2.5 text-white"
+          onClick={callCentral}
+          disabled={busy}
+          title="Llamar por voz: la central sale con campana de atención"
+        >
+          <Megaphone size={16} aria-hidden="true" />
+        </button>
         <button className="btn btn-primary shrink-0 px-3.5 py-2.5" type="submit" disabled={busy || !draft.trim()}>
           <PaperPlaneTilt size={16} aria-hidden="true" /> {busy ? "…" : "Enviar"}
         </button>

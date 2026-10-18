@@ -461,7 +461,7 @@
     letter-spacing: 0.06em;
     color: var(--mut2);
   }
-  /* Órdenes de misión en el panel de la cabina (táctil compacto) */
+/* Órdenes de misión en el panel de la cabina (táctil compacto) */
   .viper-act {
     display: flex;
     align-items: center;
@@ -685,3 +685,12 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Anillo del llamado de voz (VoiceCallPanel) */
+@keyframes callPulse {
+  0% { box-shadow: 0 0 0 0 rgb(200 41 26 / 0.55); }
+  70% { box-shadow: 0 0 0 16px rgb(200 41 26 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(200 41 26 / 0); }
+}
+.call-pulse { animation: callPulse 1.5s ease-out infinite; }
+
