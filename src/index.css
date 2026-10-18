@@ -1,33 +1,32 @@
 @import "tailwindcss";
 
 /* ============================================================
-   FuegoMap Unidades · Modo táctico (estilo VIPER)
-   Navy profundo con paneles oscuros, acentos cian/ámbar/rojo
-   y mapas oscuros — mismo lenguaje que la central en lo que
-   importa: spines de color por función, números condensados
-   gigantes y rojo SOLO para urgencia. Contraste AA verificado.
-   (Revertir: git a este archivo + TacticalMap MAP_STYLE.)
+   FuegoMap Unidades · Estilo blanco (mismo lenguaje que la central)
+   Paneles blancos sobre fondo gris azulado, spines de color por
+   función, números condensados gigantes y rojo SOLO para urgencia.
+   El chrome de cabina (VIPER) vive encima del mapa en su versión
+   clara. Contraste WCAG AA (mismos tokens calibrados de la central).
    ============================================================ */
 
 :root {
-  --bg: #071522;
-  --bg-2: #0a1c2b;
-  --panel: #0d1f2c;
-  --panel2: #122736;
-  --panel3: #17303f;
-  --line: rgb(164 207 220 / 0.16);
-  --line2: #7a97a6;
-  --tx: #e8f2f5;
-  --mut: #9db4c0;
-  --mut2: #8fa9b5;
-  --fire: #ff553e;
-  --fire-deep: #d5382a;
-  --crash: #ffb057;
-  --rescue: #a78bfa;
-  --hydrant: #62e6d0;
-  --ok: #57d99b;
-  --danger: #ff6b5e;
-  color-scheme: dark;
+  --bg: #edf1f5;
+  --bg-2: #e4eaf1;
+  --panel: #ffffff;
+  --panel2: #f3f6f9;
+  --panel3: #e7edf3;
+  --line: #d5dee7;
+  --line2: #6d879e;
+  --tx: #101a24;
+  --mut: #51677c;
+  --mut2: #556a82;
+  --fire: #c8291a;
+  --fire-deep: #b02417;
+  --crash: #8a5a06;
+  --rescue: #6a48d8;
+  --hydrant: #1669c4;
+  --ok: #157940;
+  --danger: #c01f1f;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -63,13 +62,8 @@
   }
   body {
     margin: 0;
-    /* Fondo táctico VIPER: rejilla + trazos diagonales + brillo naval */
     background:
-      repeating-linear-gradient(0deg, transparent 0 47px, rgb(92 135 154 / 0.09) 48px, transparent 50px),
-      repeating-linear-gradient(90deg, transparent 0 67px, rgb(92 135 154 / 0.08) 68px, transparent 70px),
-      repeating-linear-gradient(67deg, transparent 0 115px, rgb(109 159 177 / 0.1) 116px, transparent 124px),
-      repeating-linear-gradient(151deg, transparent 0 84px, rgb(109 159 177 / 0.07) 85px, transparent 92px),
-      radial-gradient(140% 90% at 50% -20%, #0e2434 0%, transparent 55%),
+      radial-gradient(140% 90% at 50% -20%, #ffffff 0%, transparent 55%),
       var(--bg);
     background-attachment: fixed;
     color: var(--tx);
@@ -123,7 +117,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    border: 1px solid color-mix(in srgb, var(--line2) 70%, transparent);
+    border: 1px solid var(--line2);
     background: var(--panel2);
     color: var(--tx);
     font-family: var(--font-display);
@@ -132,10 +126,9 @@
     letter-spacing: 0.03em;
     padding: 0 18px;
     min-height: 56px;
-    border-radius: 10px;
+    border-radius: 12px;
     cursor: pointer;
     white-space: nowrap;
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 4px 14px rgb(2 8 14 / 0.3);
     transition: background-color 0.15s ease-out, border-color 0.15s ease-out, transform 0.12s ease-out;
   }
   .btn:hover {
@@ -172,17 +165,11 @@
     color: var(--tx);
   }
 
-  /* Tarjetas con «spine» de función: panel de vidrio oscuro (VIPER) —
-     el borde izquierdo codifica el tipo */
+  /* Tarjetas con «spine» de función: el borde izquierdo codifica el tipo */
   .card {
-    background: color-mix(in srgb, var(--panel) 92%, transparent);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 12px;
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.04),
-      0 10px 26px rgb(2 8 14 / 0.38);
+    border-radius: 14px;
   }
   .spine-fire {
     border-left: 4px solid var(--fire);
@@ -209,14 +196,14 @@
       0 0 28px -8px color-mix(in srgb, var(--fire) 40%, transparent);
   }
 
-  /* Panel flotante sobre el mapa (cockpit) — vidrio oscuro */
+  /* Panel flotante sobre el mapa (cockpit) */
   .float-panel {
-    background: color-mix(in srgb, var(--panel) 88%, transparent);
+    background: color-mix(in srgb, var(--panel) 90%, transparent);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid color-mix(in srgb, var(--line2) 40%, transparent);
+    border: 1px solid color-mix(in srgb, var(--line2) 45%, transparent);
     border-radius: 16px;
-    box-shadow: 0 18px 40px rgb(2 8 14 / 0.5);
+    box-shadow: 0 18px 40px rgb(16 26 36 / 0.18);
   }
 
   .input {
@@ -244,14 +231,13 @@
     align-items: center;
     gap: 0.35rem;
     font-family: var(--font-display);
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 13.5px;
+    font-weight: 600;
     letter-spacing: 0.05em;
-    padding: 4px 10px;
-    border-radius: 8px;
-    border: 1px solid color-mix(in srgb, currentColor 32%, transparent);
+    padding: 3px 11px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
     background: color-mix(in srgb, currentColor 10%, transparent);
-    box-shadow: 0 3px 10px rgb(2 8 14 / 0.25);
   }
 
   /* Números protagonistas del cockpit */
@@ -381,9 +367,9 @@
   }
 
   /* ============================================================
-     Cabina VIPER (pantalla de mapa): marca, topbar de píldoras,
-     raíl izquierdo, paneles de estado a la derecha y etiqueta
-     clara de la ficha. Todo sobre el mapa, sin bloquear el gesto.
+     Cabina VIPER (pantalla de mapa) — versión clara del chrome:
+     sobre el mapa claro, la marca y los paneles van en blanco;
+     el rojo queda para acción/activación, cian para hidrantes.
      ============================================================ */
   .viper-brand {
     z-index: 12;
@@ -394,15 +380,16 @@
     font-weight: 900;
     font-size: 23px;
     letter-spacing: -0.02em;
-    color: #f2f8f9;
-    text-shadow: 0 2px 10px rgb(0 0 0 / 0.75);
+    color: var(--tx);
+    text-shadow: 0 1px 8px rgb(255 255 255 / 0.85);
   }
   .viper-brand small {
     font-size: 10px;
     letter-spacing: 0.5px;
     font-weight: 700;
-    color: #b9cbd2;
-    background: rgb(35 56 71 / 0.92);
+    color: var(--mut);
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+    border: 1px solid var(--line);
     padding: 4px 7px;
     border-radius: 6px;
     text-shadow: none;
@@ -411,9 +398,9 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    border: 1px solid rgb(255 255 255 / 0.12);
-    background: rgb(17 39 54 / 0.92);
-    color: #e6f2f4;
+    border: 1px solid var(--line2);
+    background: color-mix(in srgb, var(--panel) 94%, transparent);
+    color: var(--tx);
     border-radius: 8px;
     padding: 9px 12px;
     min-height: 40px;
@@ -422,12 +409,12 @@
     font-weight: 700;
     letter-spacing: 0.04em;
     white-space: nowrap;
-    box-shadow: 0 4px 12px rgb(2 8 14 / 0.35);
+    box-shadow: 0 4px 12px rgb(16 26 36 / 0.15);
     cursor: pointer;
   }
   .viper-chip.on {
     background: var(--fire-deep);
-    border-color: color-mix(in srgb, var(--fire) 45%, white);
+    border-color: color-mix(in srgb, var(--fire) 40%, white);
     color: #fff;
   }
   .viper-rail {
@@ -444,26 +431,30 @@
     height: 48px;
     border: 1px solid var(--line);
     border-radius: 10px;
-    background: rgb(13 31 44 / 0.94);
+    background: color-mix(in srgb, var(--panel) 94%, transparent);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 3px;
-    color: #c4d5dc;
+    color: var(--mut);
     font-family: var(--font-display);
     font-size: 9.5px;
     font-weight: 700;
     letter-spacing: 0.06em;
-    box-shadow: 0 6px 16px rgb(2 8 14 / 0.3);
+    box-shadow: 0 6px 16px rgb(16 26 36 / 0.16);
     cursor: pointer;
+  }
+  .viper-rail button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   .viper-panel {
     width: 200px;
-    background: rgb(8 23 35 / 0.94);
+    background: color-mix(in srgb, var(--panel) 95%, transparent);
     border: 1px solid var(--line);
     border-radius: 12px;
-    box-shadow: 0 12px 30px rgb(2 8 14 / 0.45);
+    box-shadow: 0 12px 30px rgb(16 26 36 / 0.18);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     padding: 11px 13px 10px;
@@ -472,7 +463,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    color: #d9e7ec;
+    color: var(--mut);
     font-family: var(--font-display);
     font-size: 11px;
     font-weight: 800;
@@ -490,8 +481,8 @@
     margin-top: 9px;
   }
   .viper-key {
-    background: rgb(20 43 58 / 0.95);
-    border: 1px solid rgb(82 105 118 / 0.7);
+    background: var(--panel2);
+    border: 1px solid color-mix(in srgb, var(--line2) 65%, transparent);
     border-radius: 7px;
     padding: 8px 4px 7px;
     text-align: center;
@@ -518,11 +509,12 @@
   }
   .viper-maplabel {
     width: 200px;
-    background: #f2f5f4;
+    background: #ffffff;
+    border: 1px solid var(--line);
     color: #23333a;
     padding: 10px 12px;
     border-radius: 5px;
-    box-shadow: 0 6px 20px rgb(2 8 14 / 0.5);
+    box-shadow: 0 6px 20px rgb(16 26 36 / 0.18);
     font-size: 11px;
   }
   .viper-maplabel strong {
@@ -539,7 +531,7 @@
   }
   .viper-maplabel a {
     display: inline-block;
-    color: #0b7a4b;
+    color: var(--ok);
     font-weight: 800;
     margin-top: 5px;
     text-decoration: none;

@@ -59,13 +59,16 @@ con `sendPushToUnit()` (`src/lib/push.ts` de la central).
 
 ## Probar en una tablet real
 
-> **Interfaz «cabina VIPER» desde `fddcf785`:** la PWA usa el tema navy
-> oscuro con rejilla táctica, tarjetas de vidrio, chips y navegación con
-> pestaña activa roja, y mapa OpenFreeMap «dark». Si prefieres el tema
-> claro anterior, revierte `src/index.css` (tokens y capas de fondo),
-> `src/components/Shell.tsx` y `MAP_STYLE` en `TacticalMap.tsx`
-> («dark» → «positron»). En sol directo a la pantalla el tema claro
-> rinde mejor: ese es el motivo de revertir, no el código.
+> **Interfaz blanca de la central se mantiene desde `fddcf785` en adelante:**
+> la PWA conserva el tema claro original (paneles blancos, rojo solo para
+> urgencia) y el mapa OpenFreeMap «positron». ENCIMA del mapa de Mapa viven
+> dos extras de cabina: el **chrome VIPER** (marca con código de unidad,
+> píldoras de capas Hidrantes/Zonas, raíl Destino/Puesto/Norte/Vista,
+> panel «Estado operativo», retícula de hidrantes cercanos, panel Vehículos
+> y etiqueta blanca de la ficha) y el **velocímetro** del modo conducción.
+> El chrome está en `src/components/CockpitChrome.tsx` + las clases
+> `.viper-*` de `src/index.css`; quita de ahí si algún día molesta — el
+> resto de la app no depende de él.
 >
 > La ficha del edificio se prueba con un despacho a ≤300 m de un preplan
 > activo: la misión muestra la tarjeta «Ficha del edificio» con su

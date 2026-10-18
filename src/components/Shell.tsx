@@ -146,7 +146,7 @@ export default function Shell({ children, fullBleed = false }: { children: React
             className={({ isActive }) =>
               cx(
                 "mx-1 my-1 flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl text-[12px] font-bold tracking-[0.1em] uppercase no-underline",
-                isActive ? "bg-fire text-white shadow-lg" : "text-mut",
+                isActive ? "bg-panel3 text-fire" : "text-mut",
               )
             }
           >
