@@ -3,20 +3,19 @@
 //
 // UNA SOLA VENTANA — el mapa: Inicio, Misión, Chat y Ajustes dejaron de ser
 // pantallas; todo vive como paneles flotantes sobre /mapa (MapOverlays).
-// Solo quedan dos modales globales: la ALARMA de despacho y la alerta de
-// emergencias para bomberos (contrato de seguridad del vehículo).
+// Solo queda un modal global: la ALARMA de despacho del chofer.
+// La vista para bomberos fue retirada: la tablet es del chofer.
 
 import { useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Alert from "./pages/Alert";
-import EmergencyAlert from "./pages/EmergencyAlert";
 import Login from "./pages/Login";
 import MapPage from "./pages/Map";
 import { usePwaUpdate } from "./lib/pwa";
 import { useApp } from "./state/AppContext";
 
 export default function App() {
-  const { phase, mission, alertMission, activeAlert, notify } = useApp();
+  const { phase, mission, alertMission, notify } = useApp();
   const location = useLocation();
 
   // Con misión activa NUNCA se recarga la app; en cuanto cierre, se aplica
@@ -63,8 +62,6 @@ export default function App() {
           en /alerta (ahí la ruta ya lo muestra — dos montados se apilaban y
           el «Ver sin aceptar» de arriba interceptaba el «ACEPTAR» de abajo). */}
       {alertMission && location.pathname !== "/alerta" && <Alert overlay />}
-      {/* Alerta de emergencia para todos los bomberos (a pantalla completa) */}
-      {!alertMission && activeAlert && <EmergencyAlert />}
     </>
   );
 }

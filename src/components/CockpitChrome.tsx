@@ -265,7 +265,7 @@ export default function CockpitChrome({
               className="mt-2 text-right text-[12.5px] font-bold"
               style={{ color: "var(--rescue)" }}
             >
-              Vista de bomberos
+              Sin misión asignada
             </p>
           )}
         </div>

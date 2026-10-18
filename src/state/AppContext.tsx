@@ -15,7 +15,7 @@ import {
   type ReactNode,
 } from "react";
 import { api, ApiError, getWithETag } from "../lib/api";
-import { startAlarm, stopAlarm } from "../lib/alarm";
+import { stopAlarm } from "../lib/alarm";
 import { newOpId } from "../lib/op";
 import { ensurePushSubscription, ensurePushSubscriptionPublic } from "../lib/push";
 import type {
@@ -32,7 +32,7 @@ import type {
   UnitStatus,
   UserDTO,
 } from "../lib/types";
-import { cacheMission, db, getCachedMission, getMeta, saveSyncLocally, setMeta } from "../db/db";
+import { cacheMission, getCachedMission, getMeta, saveSyncLocally, setMeta } from "../db/db";
 import { enqueueOp, flush, retryAll, subscribeQueue } from "../db/queue";
 import { useSSE } from "../hooks/useSSE";
 import { useUnitPosition } from "../hooks/useUnitPosition";
@@ -56,14 +56,11 @@ interface AppContextValue {
   missionDetail: MissionPayload | null;
   /** Despacho entrante: dispara la pantalla de alerta con sirena */
   alertMission: MissionSummary | null;
-  /** Emergencias activas — visible para TODOS los bomberos (con o sin unidad) */
+  /** Emergencias activas que alimentan listas y el mapa */
   alerts: BasicIncidentDTO[];
-  /** Alerta en pantalla pendiente de reconocer (con mini-mapa y datos básicos) */
-  activeAlert: BasicIncidentDTO | null;
-  /** Datos del último /api/app/alerts: hidrantes y zonas para la vista básica */
+  /** Datos del último /api/app/alerts: hidrantes y zonas para el mapa */
   alertHydrants: HydrantDTO[];
   alertZones: DangerZoneDTO[];
-  ackAlert: (id: number) => void;
   connected: boolean;
   online: boolean;
   /** Última posición GPS conocida de la tablet */
@@ -99,22 +96,6 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-// ---------- Alertas reconocidas (persisten en este dispositivo) ----------
-
-const ACK_KEY = "fm_ack_alerts";
-
-/** Ventana en la que una emergencia SIRENA al arribar (después queda en listas) */
-const FRESH_ALERT_MS = 10 * 60_000;
-
-function loadAcks(): number[] {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(ACK_KEY) ?? "[]") as unknown;
-    return Array.isArray(parsed) ? parsed.filter((x): x is number => typeof x === "number") : [];
-  } catch {
-    return [];
-  }
-}
-
 export function useApp(): AppContextValue {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error("useApp fuera de AppProvider");
@@ -133,12 +114,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [alertsData, setAlertsData] = useState<AlertsResponse | null>(null);
   const [chat, setChat] = useState<ChatMsg[] | null>(null);
   const [unreadChat, setUnreadChat] = useState(0);
-  const [activeAlert, setActiveAlert] = useState<BasicIncidentDTO | null>(null);
-  const ackedRef = useRef<number[]>(loadAcks());
-  const sirenRef = useRef<number | null>(null);
   const alertsEtagRef = useRef<string | null>(null);
-  const activeAlertRef = useRef<BasicIncidentDTO | null>(null);
-  activeAlertRef.current = activeAlert;
   const [online, setOnline] = useState(true);
   const [queue, setQueue] = useState({ pending: 0, errors: 0 });
   /** Última posición GPS conocida de la tablet (para el mapa y nuevos hidrantes) */
@@ -147,8 +123,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const missionRef = useRef<MissionSummary | null>(null);
   missionRef.current = mission;
-  const alertsRef = useRef<BasicIncidentDTO[]>([]);
-  alertsRef.current = alertsData?.incidents ?? [];
   const unitRef = useRef<UnitDTO | null>(null);
   unitRef.current = unit;
 
@@ -198,51 +172,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ---------- Alertas globales: TODAS las emergencias, para todos los bomberos ----------
 
-  /** Aplica el payload de alertas: alerta activa, sirena e hidrantes locales */
+  /** Aplica el payload de alertas: datos vivos para listas, mapa e hidrantes */
   const applyAlerts = useCallback((d: AlertsResponse) => {
     setAlertsData(d);
-
-    // Alerta en pantalla: la emergencia más reciente SIN reconocer y que no
-    // sea la propia misión (esa ya tiene su alerta). Solo sirena lo
-    // realmente NUEVO (≤10 min): las emergencias viejas quedan en las
-    // listas/Mapa y no aprietan la pantalla cada vez que abres la app.
-    const mine = missionRef.current?.id ?? null;
-    if (mine != null && activeAlertRef.current?.id === mine) {
-      // La emergencia pasó a ser misión de esta unidad: fuera el modal global
-      setActiveAlert(null);
-      if (sirenRef.current === mine) {
-        stopAlarm();
-        sirenRef.current = null;
-      }
-    }
-    const fresh = d.incidents.filter(
-      (i) =>
-        !ackedRef.current.includes(i.id) &&
-        i.id !== mine &&
-        Date.now() - new Date(i.createdAt).getTime() < FRESH_ALERT_MS,
-    );
-    if (fresh.length > 0) {
-      const top = fresh[0];
-      setActiveAlert((prev) => (prev && prev.id === top.id ? prev : top));
-      if (sirenRef.current !== top.id) {
-        sirenRef.current = top.id;
-        startAlarm(); // sirena para todos los bomberos, no solo para el despachado
-      }
-    } else if (sirenRef.current != null) {
-      // Ya no queda ninguna emergencia sin reconocer
-      stopAlarm();
-      sirenRef.current = null;
-      setActiveAlert(null);
-    }
-
-    // Sin sesión (bomberos sin credenciales): mantener los hidrantes
-    // locales frescos desde la propia alerta pública (Hydrants + modal)
-    if (!unitRef.current) {
-      void db.transaction("rw", db.hydrants, async () => {
-        await db.hydrants.clear();
-        await db.hydrants.bulkPut(d.hydrants);
-      });
-    }
   }, []);
 
   const refreshAlerts = useCallback(async () => {
@@ -256,11 +188,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [applyAlerts]);
 
-  // ---------- Arranque: sin sesión decide por la EMERGENCIA NUEVA ----------
-  // Al abrir http://localhost:3100, si hay una emergencia nueva sin
-  // reconocer, la app ENTRA DIRECTAMENTE a la vista de bomberos: la alerta
-  // se muestra y suena al instante, sin pantalla de ingreso en medio.
-  // Si no hay nada urgente, cae al ingreso (Chofer / Bombero).
+  // ---------- Arranque: con sesión entra directo; sin ella, al ingreso ----------
 
   const boot = useCallback(async () => {
     try {
@@ -271,57 +199,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMission(me.mission);
       return;
     } catch {
-      /* sin sesión: mirar si hay emergencia nueva */
+      /* sin sesión válida: pantalla de ingreso del chofer */
     }
-    try {
-      const result = await getWithETag<AlertsResponse>("/api/app/alerts", alertsEtagRef.current ?? null);
-      if (result) {
-        alertsEtagRef.current = result.etag;
-        applyAlerts(result.data);
-        const hayNueva = result.data.incidents.some(
-          (i) =>
-            !ackedRef.current.includes(i.id) &&
-            Date.now() - new Date(i.createdAt).getTime() < FRESH_ALERT_MS,
-        );
-        setPhase(hayNueva ? "guest" : "anon");
-        return;
-      }
-      setPhase("anon");
-    } catch {
-      // Central sin responder: ingreso, jamás atrapado en «Conectando…»
-      setPhase("anon");
-    }
-  }, [applyAlerts]);
+    setPhase("anon");
+  }, []);
 
   useEffect(() => {
     void boot();
   }, [boot]);
-
-  const ackAlert = useCallback((id: number) => {
-    ackedRef.current = [...ackedRef.current, id].slice(-30);
-    try {
-      localStorage.setItem(ACK_KEY, JSON.stringify(ackedRef.current));
-    } catch {
-      /* sin almacenamiento */
-    }
-    // Si hay OTRA emergencia reciente sin reconocer, pasa a ella; si no, silencio
-    const mine = missionRef.current?.id ?? null;
-    const next = alertsRef.current.find(
-      (i) =>
-        !ackedRef.current.includes(i.id) &&
-        i.id !== mine &&
-        Date.now() - new Date(i.createdAt).getTime() < FRESH_ALERT_MS,
-    );
-    if (next) {
-      sirenRef.current = next.id;
-      startAlarm();
-      setActiveAlert(next);
-    } else {
-      stopAlarm();
-      sirenRef.current = null;
-      setActiveAlert(null);
-    }
-  }, []);
 
   // ---------- Sync offline (hidrantes + equipo + config) ----------
 
@@ -593,7 +478,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     stopAlarm();
-    sirenRef.current = null;
     await api.post("/api/units/auth/logout").catch(() => {});
     setUser(null);
     setUnit(null);
@@ -713,10 +597,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       missionDetail,
       alertMission,
       alerts: alertsData?.incidents ?? [],
-      activeAlert,
       alertHydrants: alertsData?.hydrants ?? [],
       alertZones: alertsData?.dangerZones ?? [],
-      ackAlert,
       connected,
       online,
       position,
@@ -745,8 +627,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       notify,
     }),
     [
-      phase, user, unit, mission, missionDetail, alertMission, alertsData, activeAlert,
-      ackAlert, connected, online, position, queue, wakeLock, notices, busy,
+      phase, user, unit, mission, missionDetail, alertMission, alertsData,
+      connected, online, position, queue, wakeLock, notices, busy,
       login, logout, setStatus, acceptMission, dismissAlert,
       refreshMe, refreshMission, refreshAlerts, enterLogin, backToGuest, syncNow, sendLocation, retryQueue, notify,
     ],
