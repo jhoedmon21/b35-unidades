@@ -38,9 +38,14 @@ export default function Shell({ children, fullBleed = false }: { children: React
       <header className="flex shrink-0 items-center gap-3 border-b border-line bg-panel px-3 py-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2.5">
-            <span className="display text-2xl font-bold leading-none tracking-[0.08em]">
-              {unit ? unit.code : "🧑‍🚒"}
-            </span>
+            {unit ? (
+              <span className="display text-2xl font-bold leading-none tracking-[0.08em]">{unit.code}</span>
+            ) : (
+              /* Marca al estilo VIPER: la «M» con acento verde del mark original */
+              <span className="display text-2xl font-bold leading-none tracking-[0.08em]">
+                Fuego<span className="text-ok">Map</span>
+              </span>
+            )}
             {status ? (
               <span
                 className="pill"
@@ -141,7 +146,7 @@ export default function Shell({ children, fullBleed = false }: { children: React
             className={({ isActive }) =>
               cx(
                 "mx-1 my-1 flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl text-[12px] font-bold tracking-[0.1em] uppercase no-underline",
-                isActive ? "bg-panel3 text-fire" : "text-mut",
+                isActive ? "bg-fire text-white shadow-lg" : "text-mut",
               )
             }
           >

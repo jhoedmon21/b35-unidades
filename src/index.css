@@ -63,7 +63,12 @@
   }
   body {
     margin: 0;
+    /* Fondo táctico VIPER: rejilla + trazos diagonales + brillo naval */
     background:
+      repeating-linear-gradient(0deg, transparent 0 47px, rgb(92 135 154 / 0.09) 48px, transparent 50px),
+      repeating-linear-gradient(90deg, transparent 0 67px, rgb(92 135 154 / 0.08) 68px, transparent 70px),
+      repeating-linear-gradient(67deg, transparent 0 115px, rgb(109 159 177 / 0.1) 116px, transparent 124px),
+      repeating-linear-gradient(151deg, transparent 0 84px, rgb(109 159 177 / 0.07) 85px, transparent 92px),
       radial-gradient(140% 90% at 50% -20%, #0e2434 0%, transparent 55%),
       var(--bg);
     background-attachment: fixed;
@@ -118,7 +123,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    border: 1px solid var(--line2);
+    border: 1px solid color-mix(in srgb, var(--line2) 70%, transparent);
     background: var(--panel2);
     color: var(--tx);
     font-family: var(--font-display);
@@ -127,9 +132,10 @@
     letter-spacing: 0.03em;
     padding: 0 18px;
     min-height: 56px;
-    border-radius: 12px;
+    border-radius: 10px;
     cursor: pointer;
     white-space: nowrap;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 4px 14px rgb(2 8 14 / 0.3);
     transition: background-color 0.15s ease-out, border-color 0.15s ease-out, transform 0.12s ease-out;
   }
   .btn:hover {
@@ -166,11 +172,17 @@
     color: var(--tx);
   }
 
-  /* Tarjetas con «spine» de función: el borde izquierdo codifica el tipo */
+  /* Tarjetas con «spine» de función: panel de vidrio oscuro (VIPER) —
+     el borde izquierdo codifica el tipo */
   .card {
-    background: var(--panel);
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: 12px;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.04),
+      0 10px 26px rgb(2 8 14 / 0.38);
   }
   .spine-fire {
     border-left: 4px solid var(--fire);
@@ -232,13 +244,14 @@
     align-items: center;
     gap: 0.35rem;
     font-family: var(--font-display);
-    font-size: 13.5px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
     letter-spacing: 0.05em;
-    padding: 3px 11px;
-    border-radius: 999px;
-    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, currentColor 32%, transparent);
     background: color-mix(in srgb, currentColor 10%, transparent);
+    box-shadow: 0 3px 10px rgb(2 8 14 / 0.25);
   }
 
   /* Números protagonistas del cockpit */
