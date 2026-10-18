@@ -29,6 +29,29 @@ const HAZARD_COLOR: Record<DangerZoneDTO["level"], string> = {
   bajo: "#64789a",
 };
 
+/** Velocidad del vehículo (km/h) entre arreglos GPS sucesivos — el
+ *  velocímetro del modo conducción (guiño VIPER). Promedio móvil
+ *  exponencial para no trepidar con el jitter del GPS. */
+function useSpeedKmh(pos: { lat: number; lng: number } | null): number {
+  const [kmh, setKmh] = useState(0);
+  const prev = useRef<{ lat: number; lng: number; t: number } | null>(null);
+  const lat = pos?.lat;
+  const lng = pos?.lng;
+  useEffect(() => {
+    if (lat == null || lng == null) return;
+    const now = Date.now();
+    const last = prev.current;
+    prev.current = { lat, lng, t: now };
+    // Arreglos separados por <2 s no dan velocidad confiable: esperar
+    if (!last || now - last.t < 2000) return;
+    const dtS = (now - last.t) / 1000;
+    const instant = (haversineM({ lat: last.lat, lng: last.lng }, { lat, lng }) / dtS) * 3600;
+    setKmh((p) => Math.round(Math.min(instant, 160) * 0.45 + p * 0.55));
+  }, [lat, lng]);
+  // GPS en reposo oscila ±10 km/h de puro ruido: mostrar 0 por debajo de 3
+  return kmh < 3 ? 0 : kmh;
+}
+
 /** Zonas cuya ruta restante pasa a menos de 350 m */
 function hazardsAhead(route: RouteInfo, fromIdx: number, zones: DangerZoneDTO[]) {
   const ahead: Array<{ zone: DangerZoneDTO; metersAhead: number }> = [];
@@ -94,6 +117,7 @@ export default function MapPage() {
   // deja de reencuadrar por fitKey y SIGUE a la unidad con rumbo de avance.
   const navMode = search.get("nav") === "1" && Boolean(active);
   const navKey = unitPos ? `${unitPos.lat.toFixed(4)};${unitPos.lng.toFixed(4)}` : "none"; // ~11 m
+  const speedKmh = useSpeedKmh(navMode ? unitPos : null);
 
   // Ruta completa: salida (cuartel) → emergencia. Se calcula una vez por misión.
   useEffect(() => {
@@ -502,6 +526,16 @@ export default function MapPage() {
                 En camino · {active.incident.title}
               </div>
               <div className="mt-1 flex items-baseline gap-3">
+                {navMode && (
+                  <span
+                    className="viper-speed self-center"
+                    role="status"
+                    aria-label={`Velocidad actual ${speedKmh} kilómetros por hora`}
+                  >
+                    <strong>{speedKmh}</strong>
+                    <span>km/h</span>
+                  </span>
+                )}
                 {eta ? (
                   <span className="num-hero text-[44px] leading-none text-fire">{eta}</span>
                 ) : (
