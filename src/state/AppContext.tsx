@@ -64,7 +64,7 @@ interface AppContextValue {
   connected: boolean;
   online: boolean;
   /** Última posición GPS conocida de la tablet */
-  position: { lat: number; lng: number; accuracy: number } | null;
+  position: { lat: number; lng: number; accuracy: number; speed: number | null } | null;
   queue: { pending: number; errors: number };
   wakeLock: { held: boolean; supported: boolean };
   notices: Notice[];
@@ -128,7 +128,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [online, setOnline] = useState(true);
   const [queue, setQueue] = useState({ pending: 0, errors: 0 });
   /** Última posición GPS conocida de la tablet (para el mapa y nuevos hidrantes) */
-  const [position, setPosition] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [position, setPosition] = useState<{ lat: number; lng: number; accuracy: number; speed: number | null } | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const missionRef = useRef<MissionSummary | null>(null);
@@ -402,8 +402,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Sin unidad (bombero sin clave) no hay a quién reportarle posición
     enabled: ready && Boolean(unit),
     inMission: Boolean(mission),
-    onPosition: (lat, lng, accuracy) => {
-      setPosition({ lat, lng, accuracy });
+    onPosition: (lat, lng, accuracy, speed) => {
+      setPosition({ lat, lng, accuracy, speed });
       void sendLocationRef.current(lat, lng, accuracy);
     },
   });

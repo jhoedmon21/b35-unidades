@@ -33,15 +33,25 @@ const HAZARD_COLOR: Record<DangerZoneDTO["level"], string> = {
   bajo: "#64789a",
 };
 
-/** Velocidad del vehículo (km/h) entre arreglos GPS sucesivos — el
- *  velocímetro del modo conducción (guiño VIPER). Promedio móvil
- *  exponencial para no trepidar con el jitter del GPS. */
-function useSpeedKmh(pos: { lat: number; lng: number } | null): number {
+/** Velocidad REAL del vehículo (km/h) para el velocímetro del modo
+ *  conducción (guiño VIPER). Fuente principal: la velocidad nativa que
+ *  entrega el GPS (coords.speed, m/s — doppler del receptor); SOLO si el
+ *  receptor no la entrega, se estima el avance entre arreglos con promedio
+ *  móvil exponencial para amortiguar el jitter. */
+function useSpeedKmh(pos: { lat: number; lng: number; speed: number | null } | null): number {
   const [kmh, setKmh] = useState(0);
   const prev = useRef<{ lat: number; lng: number; t: number } | null>(null);
   const lat = pos?.lat;
   const lng = pos?.lng;
+  const gpsSpeed = pos?.speed;
   useEffect(() => {
+    // 1) Velocidad auténtica del GPS (no se genera ni se estima)
+    if (gpsSpeed != null && Number.isFinite(gpsSpeed) && gpsSpeed >= 0) {
+      const v = Math.round(gpsSpeed * 3.6);
+      setKmh(v >= 3 ? v : 0);
+      return;
+    }
+    // 2) Complemento solo si el receptor no entrega doppler
     if (lat == null || lng == null) return;
     const now = Date.now();
     const last = prev.current;
@@ -51,7 +61,7 @@ function useSpeedKmh(pos: { lat: number; lng: number } | null): number {
     const dtS = (now - last.t) / 1000;
     const instant = (haversineM({ lat: last.lat, lng: last.lng }, { lat, lng }) / dtS) * 3600;
     setKmh((p) => Math.round(Math.min(instant, 160) * 0.45 + p * 0.55));
-  }, [lat, lng]);
+  }, [lat, lng, gpsSpeed]);
   // GPS en reposo oscila ±10 km/h de puro ruido: mostrar 0 por debajo de 3
   return kmh < 3 ? 0 : kmh;
 }
@@ -107,10 +117,10 @@ export default function MapPage() {
     });
   }, []);
 
-  // Posición de la unidad: GPS de la tablet; si no, la que conoce la central
+  // Posición de la unidad: GPS de la tablet (con velocidad doppler real); si no, la que conoce la central
   const unitPos = useMemo(() => {
-    if (position) return { lat: position.lat, lng: position.lng };
-    if (unit?.lat != null && unit?.lng != null) return { lat: unit.lat, lng: unit.lng };
+    if (position) return { lat: position.lat, lng: position.lng, speed: position.speed };
+    if (unit?.lat != null && unit?.lng != null) return { lat: unit.lat, lng: unit.lng, speed: null };
     return null;
   }, [position, unit?.lat, unit?.lng]);
 

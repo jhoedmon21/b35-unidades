@@ -694,3 +694,39 @@
 }
 .call-pulse { animation: callPulse 1.5s ease-out infinite; }
 
+
+/* ===== Responsiva total de la cabina + controles colapsables ===== */
+.viper-fold {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--mut2);
+  cursor: pointer;
+  border-radius: 5px;
+  transition: color 0.15s ease, transform 0.18s ease;
+}
+.viper-fold:hover { color: var(--tx); }
+.viper-fold[aria-expanded="false"] { transform: rotate(180deg); }
+@media (max-width: 760px) {
+  .viper-clock { padding: 5px 9px; }
+  .viper-clock strong { font-size: 13.5px; }
+  .viper-clock span { display: none; }
+  .viper-chip { padding: 7px 10px; font-size: 12px; gap: 5px; min-height: 36px; }
+  .viper-col { max-width: 58vw; }
+  .viper-panel, .viper-maplabel { max-width: 58vw; }
+  .viper-speed { width: 46px; height: 46px; }
+  .viper-speed strong { font-size: 16px; }
+  .viper-speed span { font-size: 9px; }
+  .viper-rail button { padding: 8px 10px; }
+  .float-panel { padding: 14px !important; }
+}
+@media (max-width: 560px) {
+  .viper-col { max-width: 70vw; }
+  .viper-panel, .viper-maplabel { max-width: 70vw; }
+  .viper-chip { padding: 6px 8px; font-size: 11.5px; }
+  .viper-panel { padding: 9px 10px 8px; }
+  .viper-speed { width: 44px; height: 44px; }
+  .viper-speed strong { font-size: 15px; }
+  .float-panel { padding: 12px !important; }
+}
+

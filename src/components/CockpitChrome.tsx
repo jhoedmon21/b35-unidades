@@ -9,6 +9,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Map as MlMap } from "maplibre-gl";
 import {
   ArrowsOut,
+  CaretDown,
   ChatCircle,
   Clock,
   ClockCounterClockwise,
@@ -111,6 +112,40 @@ export default function CockpitChrome({
   // Estado del operador a mostrar en el panel Estado operativo
   const status = unit ? UNIT_STATUS[unit.status] ?? null : null;
 
+  /* Colapsar: la fila de opciones se esconde a un toque (se recuerda en el
+     equipo) y cada panel de la columna derecha pliega su contenido con el
+     chevron — el mapa queda limpio cuando el chofer no lo necesita. */
+  const [chipsOpen, setChipsOpen] = useState(() => {
+    try {
+      return localStorage.getItem("fw-chips") !== "1";
+    } catch {
+      return true;
+    }
+  });
+  const [folds, setFolds] = useState<Record<string, boolean>>({});
+  const toggleChips = () => {
+    setChipsOpen((v) => {
+      try {
+        localStorage.setItem("fw-chips", v ? "1" : "0");
+      } catch {
+        /* sin almacenamiento: solo la vista */
+      }
+      return !v;
+    });
+  };
+  const toggleFold = (key: string) => setFolds((f) => ({ ...f, [key]: !f[key] }));
+  const foldBtn = (key: string, label: string) => (
+    <button
+      type="button"
+      className="viper-fold"
+      onClick={() => toggleFold(key)}
+      aria-expanded={!folds[key]}
+      aria-label={`Colapsar el panel ${label}`}
+    >
+      <CaretDown size={13} aria-hidden="true" />
+    </button>
+  );
+
   return (
     /* El wrapper desplaza TODO el cromo cuando está el banner EN RUTA */
     <div
@@ -142,70 +177,92 @@ export default function CockpitChrome({
         <LiveClock />
       </div>
 
-      {/* Píldoras de capas del topbar (ancho acotado: no invade la columna
-          de paneles de la derecha y envuelve en pantallas angostas) */}
-      <div className="pointer-events-none absolute left-3 top-12 z-[12] max-w-[calc(100vw-21rem)]"
-      >
-        <div className="pointer-events-auto flex flex-wrap gap-2">
-          <button
-            type="button"
-            className={cx("viper-chip", showHydrants && "on")}
-            onClick={() => setShowHydrants(!showHydrants)}
-            aria-pressed={showHydrants}
-            title="Mostrar u ocultar hidrantes"
-          >
-            <Drop size={15} aria-hidden="true" /> Hidrantes
-          </button>
-          <button
-            type="button"
-            className={cx("viper-chip", showZones && "on")}
-            onClick={() => setShowZones(!showZones)}
-            aria-pressed={showZones}
-            title="Mostrar u ocultar tramos peligrosos"
-          >
-            <WarningDiamond size={15} aria-hidden="true" /> Zonas
-          </button>
-          {/* Paneles de comando: el mapa es la única ventana de la app */}
-          <button
-            type="button"
-            className={cx("viper-chip", chatOpen && "on")}
-            onClick={onChatToggle}
-            aria-pressed={chatOpen}
-            title="Chat con la central"
-          >
-            <ChatCircle size={15} aria-hidden="true" /> Chat
-            {chatUnread > 0 && !chatOpen && (
-              <span className="viper-badge" aria-label={`${chatUnread} sin leer`}>
-                {chatUnread > 9 ? "9+" : chatUnread}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            className="viper-chip"
-            onClick={onEquipoToggle}
-            title="Equipo del vehículo: ubicación y uso"
-          >
-            <Wrench size={15} aria-hidden="true" /> Equipo
-          </button>
-          <button
-            type="button"
-            className="viper-chip"
-            onClick={onMisionesToggle}
-            title="Misiones cerradas por esta unidad"
-          >
-            <ClockCounterClockwise size={15} aria-hidden="true" /> Misiones
-          </button>
-          <button
-            type="button"
-            className={cx("viper-chip", "text-mut")}
-            onClick={onSettingsToggle}
-            title="Ajustes: alarma, sincronización, sesión"
-            aria-label="Ajustes"
-          >
-            <GearSix size={15} aria-hidden="true" /> Ajustes
-          </button>
-        </div>
+      {/* Píldoras de capas del topbar — COLAPSABLES: un toque las esconde,
+          otro las devuelve (ancho acotado: no invade la columna derecha) */}
+      <div className="pointer-events-none absolute left-3 top-12 z-[12] max-w-[calc(100vw-21rem)]">
+        {chipsOpen ? (
+          <div className="pointer-events-auto flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={cx("viper-chip", showHydrants && "on")}
+              onClick={() => setShowHydrants(!showHydrants)}
+              aria-pressed={showHydrants}
+              title="Mostrar u ocultar hidrantes"
+            >
+              <Drop size={15} aria-hidden="true" /> Hidrantes
+            </button>
+            <button
+              type="button"
+              className={cx("viper-chip", showZones && "on")}
+              onClick={() => setShowZones(!showZones)}
+              aria-pressed={showZones}
+              title="Mostrar u ocultar tramos peligrosos"
+            >
+              <WarningDiamond size={15} aria-hidden="true" /> Zonas
+            </button>
+            {/* Paneles de comando: el mapa es la única ventana de la app */}
+            <button
+              type="button"
+              className={cx("viper-chip", chatOpen && "on")}
+              onClick={onChatToggle}
+              aria-pressed={chatOpen}
+              title="Chat con la central"
+            >
+              <ChatCircle size={15} aria-hidden="true" /> Chat
+              {chatUnread > 0 && !chatOpen && (
+                <span className="viper-badge" aria-label={`${chatUnread} sin leer`}>
+                  {chatUnread > 9 ? "9+" : chatUnread}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              className="viper-chip"
+              onClick={onEquipoToggle}
+              title="Equipo del vehículo: ubicación y uso"
+            >
+              <Wrench size={15} aria-hidden="true" /> Equipo
+            </button>
+            <button
+              type="button"
+              className="viper-chip"
+              onClick={onMisionesToggle}
+              title="Misiones cerradas por esta unidad"
+            >
+              <ClockCounterClockwise size={15} aria-hidden="true" /> Misiones
+            </button>
+            <button
+              type="button"
+              className={cx("viper-chip", "text-mut")}
+              onClick={onSettingsToggle}
+              title="Ajustes: alarma, sincronización, sesión"
+              aria-label="Ajustes"
+            >
+              <GearSix size={15} aria-hidden="true" /> Ajustes
+            </button>
+            <button
+              type="button"
+              className="viper-chip text-mut"
+              onClick={toggleChips}
+              title="Ocultar esta fila de opciones"
+              aria-label="Ocultar opciones"
+            >
+              <CaretDown size={15} aria-hidden="true" /> Ocultar
+            </button>
+          </div>
+        ) : (
+          <div className="pointer-events-auto">
+            <button
+              type="button"
+              className="viper-chip"
+              onClick={toggleChips}
+              title="Mostrar las opciones de capas y paneles"
+              aria-label="Mostrar opciones"
+            >
+              <CaretDown size={15} className="rotate-180" aria-hidden="true" /> Opciones
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Rail izquierdo de cámara (destino, puesto, norte, vista) */}
@@ -249,30 +306,31 @@ export default function CockpitChrome({
       </div>
 
       {/* Columna de paneles a la derecha (del mock: arriba → abajo) */}
-      <div className="pointer-events-none absolute right-3 top-12 z-[12] flex max-h-[calc(100dvh-9.5rem)] flex-col items-end gap-2 overflow-y-auto">
-        {/* Panel Estado operativo */}
+      <div className="viper-col pointer-events-none absolute right-3 top-12 z-[12] flex max-h-[calc(100dvh-9.5rem)] flex-col items-end gap-2 overflow-y-auto">
+        {/* Panel Estado operativo (contenido colapsable) */}
         <div className="viper-panel pointer-events-auto shrink-0">
           <div className="viper-panelhead">
             <span>● Estado operativo</span>
-            <span>•••</span>
+            {foldBtn("estado", "Estado operativo")}
           </div>
-          {status ? (
-            <>
-              <div className="mt-1.5 flex items-baseline justify-end gap-2">
-                <span className="num-hero text-[26px]" style={{ color: `var(${status.varName})` }}>
-                  {unit?.code}
-                </span>
-              </div>
-              <p className="mt-0.5 text-right text-[10.5px] text-mut2">{status.label}</p>
-            </>
-          ) : (
-            <p
-              className="mt-2 text-right text-[12.5px] font-bold"
-              style={{ color: "var(--rescue)" }}
-            >
-              Sin misión asignada
-            </p>
-          )}
+          {!folds.estado &&
+            (status ? (
+              <>
+                <div className="mt-1.5 flex items-baseline justify-end gap-2">
+                  <span className="num-hero text-[26px]" style={{ color: `var(${status.varName})` }}>
+                    {unit?.code}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-right text-[10.5px] text-mut2">{status.label}</p>
+              </>
+            ) : (
+              <p
+                className="mt-2 text-right text-[12.5px] font-bold"
+                style={{ color: "var(--rescue)" }}
+              >
+                Sin misión asignada
+              </p>
+            ))}
         </div>
 
         {/* Etiqueta clara de la ficha (maplabel del mock) */}
@@ -289,51 +347,55 @@ export default function CockpitChrome({
           </div>
         )}
 
-        {/* Panel Claves de hidrantes (retícula del mock) */}
+        {/* Panel Claves de hidrantes (retícula del mock) — colapsable */}
         {hydrants.length > 0 && (
           <div className="viper-panel pointer-events-auto">
             <div className="viper-panelhead">
               <span>♧ Hidrantes</span>
-              <span>•••</span>
+              {foldBtn("hidrantes", "Hidrantes")}
             </div>
-            <div className="viper-keys">
-              {hydrants.slice(0, 4).map((h, i) => (
-                <button
-                  key={h.id}
-                  type="button"
-                  className="viper-key"
-                  onClick={() => flyTo(h.lat, h.lng, 17)}
-                  title={h.code || `Hidrante #${h.id}`}
-                >
-                  <strong>{i + 1}</strong>
-                  <span>{h.meters != null ? fmtDistance(h.meters) : ""}</span>
-                </button>
-              ))}
-            </div>
+            {!folds.hidrantes && (
+              <div className="viper-keys">
+                {hydrants.slice(0, 4).map((h, i) => (
+                  <button
+                    key={h.id}
+                    type="button"
+                    className="viper-key"
+                    onClick={() => flyTo(h.lat, h.lng, 17)}
+                    title={h.code || `Hidrante #${h.id}`}
+                  >
+                    <strong>{i + 1}</strong>
+                    <span>{h.meters != null ? fmtDistance(h.meters) : ""}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Panel Unidades en la calle */}
+        {/* Panel Unidades en la calle — colapsable */}
         {otherUnits.length > 0 && (
           <div className="viper-panel pointer-events-auto">
             <div className="viper-panelhead">
               <span>▣ Vehículos</span>
-              <span>•••</span>
+              {foldBtn("vehiculos", "Vehículos")}
             </div>
-            <div className="viper-veh">
-              {otherUnits.map((u) => (
-                <span
-                  key={u.code}
-                  className="viper-key"
-                  style={{ borderColor: `var(${UNIT_STATUS[u.status]?.varName ?? "--mut"})` }}
-                >
-                  <strong style={{ color: `var(${UNIT_STATUS[u.status]?.varName ?? "--mut"})` }}>
-                    {u.code}
-                  </strong>
-                  <span>{UNIT_STATUS[u.status]?.label ?? u.status}</span>
-                </span>
-              ))}
-            </div>
+            {!folds.vehiculos && (
+              <div className="viper-veh">
+                {otherUnits.map((u) => (
+                  <span
+                    key={u.code}
+                    className="viper-key"
+                    style={{ borderColor: `var(${UNIT_STATUS[u.status]?.varName ?? "--mut"})` }}
+                  >
+                    <strong style={{ color: `var(${UNIT_STATUS[u.status]?.varName ?? "--mut"})` }}>
+                      {u.code}
+                    </strong>
+                    <span>{UNIT_STATUS[u.status]?.label ?? u.status}</span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
