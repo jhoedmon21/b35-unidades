@@ -786,3 +786,18 @@
   .mission-siren svg { width: 18px; height: 18px; }
   .viper-col { max-height: calc(100dvh - 13rem); }
 }
+
+/* -- Móvil: sección de MISIÓN sin información duplicada ---------
+   · Hidrantes: solo el panel interactivo (no las píldoras del pie)
+   · Salida/estación/hora: ya viven en el encabezado de la tarjeta
+   · Estado operativo: el código está en la marca y el estado en Órdenes
+   · Cartel EN RUTA: conserva su rótulo; título/dirección ya están abajo */
+@media (max-width: 560px) {
+  .mission-hydrants,
+  .mission-departure,
+  .mission-central-note,
+  .panel-estado,
+  .nav-sub {
+    display: none;
+  }
+}

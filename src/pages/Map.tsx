@@ -774,7 +774,7 @@ export default function MapPage() {
             <NavigationArrow size={26} className="shrink-0" aria-hidden="true" />
             <div className="min-w-0 flex-1">
               <div className="display text-[15px] font-bold tracking-wide">EN RUTA · SEGUIMIENTO GPS</div>
-              <div className="truncate text-[12.5px] opacity-90">
+              <div className="nav-sub truncate text-[12.5px] opacity-90">
                 {active.incident.title} · {active.incident.address}
               </div>
             </div>
@@ -878,12 +878,16 @@ export default function MapPage() {
                   <span className="text-crash">Sin ruta vial (OSRM) — línea directa</span>
                 )}
                 {departure && (
-                  <span>
+                  <span className="mission-departure">
                     Saliste de {departure.station}
                     {departure.at ? ` · ${fmtClock(departure.at)}` : ""}
                   </span>
                 )}
-                {!position && <span>Posición de la central; tu GPS toma el control al conectar</span>}
+                {!position && (
+                  <span className="mission-central-note">
+                    Posición de la central; tu GPS toma el control al conectar
+                  </span>
+                )}
               </div>
               {warnings.length > 0 && (
                 <div className="mt-2 flex flex-col gap-1">

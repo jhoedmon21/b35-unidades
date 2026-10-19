@@ -327,8 +327,10 @@ export default function CockpitChrome({
 
       {/* Columna de paneles a la derecha (del mock: arriba → abajo) */}
       <div className="viper-col pointer-events-none absolute right-3 top-12 z-[12] flex max-h-[calc(100dvh-9.5rem)] flex-col items-end gap-2 overflow-y-auto">
-        {/* Panel Estado operativo (contenido colapsable) */}
-        <div className="viper-panel pointer-events-auto shrink-0">
+        {/* Panel Estado operativo (contenido colapsable). En la vista de
+            MISIÓN se oculta en móvil: el código ya está en la marca (B-2)
+            y el estado en las órdenes — sin duplicar. */}
+        <div className={cx("viper-panel pointer-events-auto shrink-0", actions && "panel-estado")}>
           <div className="viper-panelhead">
             <span>● Estado operativo</span>
             {foldBtn("estado", "Estado operativo")}
