@@ -14,6 +14,26 @@ if (import.meta.env.DEV && "serviceWorker" in navigator) {
     .catch(() => {});
 }
 
+// RED DE SEGURIDAD en producción: si el service worker de una versión
+// NUEVA toma el control de la página (p. ej. tras saltarse la espera),
+// recargar en el acto para que la cabina nunca quede viendo build vieja.
+// Se guarda la existencia de un controlador previo para no recargar la
+// PRIMERA instalación (página aún sin dominio). */
+if (!import.meta.env.DEV && "serviceWorker" in navigator) {
+  void navigator.serviceWorker
+    .getRegistration("/")
+    .then((reg) => {
+      if (!reg) return;
+      const hadController = Boolean(navigator.serviceWorker.controller);
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (hadController && document.visibilityState === "visible") {
+          window.location.reload();
+        }
+      });
+    })
+    .catch(() => {});
+}
+
 export interface PwaUpdate {
   needRefresh: boolean;
   updateServiceWorker: (reload?: boolean) => Promise<void>;
