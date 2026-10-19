@@ -8,6 +8,7 @@
 // ============================================================
 
 import { CacheableResponsePlugin } from "workbox-cacheable-response";
+import { clientsClaim } from "workbox-core";
 import { ExpirationPlugin } from "workbox-expiration";
 import { createHandlerBoundToURL, precacheAndRoute } from "workbox-precaching";
 import { NavigationRoute, registerRoute } from "workbox-routing";
@@ -16,6 +17,12 @@ import { CacheFirst, NetworkFirst } from "workbox-strategies";
 // __WB_MANIFEST debe aparecer UNA sola vez (el build lo reemplaza por el
 // precache real; en desarrollo queda vacío: sin precache ni NavigationRoute).
 declare let self: ServiceWorkerGlobalScope;
+
+// TOMA DE CONTROL INMEDIATA: una versión nueva se instala y pasa a mandar
+// sin esperar a que se cierren todas las ventanas — así la cabina nunca
+// queda atrapada en una build vieja (el cliente recarga al detectarlo).
+self.skipWaiting();
+clientsClaim();
 
 const manifest = self.__WB_MANIFEST;
 precacheAndRoute(manifest);
