@@ -126,9 +126,8 @@ export default function CockpitChrome({
   });
   const [folds, setFolds] = useState<Record<string, boolean>>(() => {
     try {
-      return window.matchMedia("(max-width: 760px)").matches
-        ? { estado: true, hidrantes: true, vehiculos: true, mision: true }
-        : {};
+      if (!window.matchMedia("(max-width: 760px)").matches) return {};
+      return { estado: true, hidrantes: true, vehiculos: true, mision: true };
     } catch {
       return {};
     }
