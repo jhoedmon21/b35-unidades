@@ -24,13 +24,13 @@ import { testAlarm } from "../lib/alarm";
 import { usePwaUpdate } from "../lib/pwa";
 import { ensurePushSubscription, ensurePushSubscriptionPublic, permissionState } from "../lib/push";
 import { enqueueOp, listQueue } from "../db/queue";
-import { db } from "../db/db";
+import { db, getMeta } from "../db/db";
 import { newOpId } from "../lib/op";
 import { fmtClock, fmtDistance, fmtMinutes, timeAgo } from "../lib/format";
 import { incidentKind, SEVERITY_LABEL } from "../lib/status";
 import { cx } from "../lib/cx";
 import { useApp } from "../state/AppContext";
-import type { EquipmentItemDTO } from "../lib/types";
+import type { EquipmentItemDTO, MissionPayload } from "../lib/types";
 
 /* ---------- Marco común de panel flotante ---------- */
 
@@ -441,14 +441,39 @@ const RESULTS: Array<[string, string]> = [
 ];
 
 export function CloseSheet({ onClose }: { onClose: () => void }) {
-  const { missionDetail, unit, online, setStatus, notify, refreshMe, refreshMission } = useApp();
+  const { mission, missionDetail, unit, online, setStatus, notify, refreshMe, refreshMission } = useApp();
   const [result, setResult] = useState("controlado");
   const [injured, setInjured] = useState("0");
   const [observations, setObservations] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
   const [sendBusy, setSendBusy] = useState(false);
+  // Respaldo de CACHÉ (lo mismo que usa el mapa): con la misión activa pero
+  // sin señal o con el detalle en vivo aún sin llegar, el formulario de
+  // cierre debe abrir igual — antes decía «No hay misión activa».
+  const [cachedIncident, setCachedIncident] = useState<MissionPayload["incident"] | null>(null);
 
-  const incident = missionDetail?.incident ?? null;
+  // Respaldo en orden: detalle en vivo → caché DE ESTA misión → mínimo
+  // (id + título del resumen). Solo si hay misión activa — nunca resucitar
+  // el cierre de una misión ya cerrada.
+  const cachedMatches = mission != null && cachedIncident != null && cachedIncident.id === mission.id;
+  const incident = missionDetail?.incident
+    ? missionDetail.incident
+    : mission
+      ? cachedMatches
+        ? cachedIncident
+        : ({ id: mission.id, title: mission.title, address: "" } as MissionPayload["incident"])
+      : null;
+
+  useEffect(() => {
+    if (!mission || missionDetail?.incident) return;
+    let alive = true;
+    void getMeta<MissionPayload>("missionCache").then((m) => {
+      if (alive && m?.incident) setCachedIncident(m.incident);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [mission, missionDetail?.incident]);
 
   function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -503,6 +528,10 @@ export function CloseSheet({ onClose }: { onClose: () => void }) {
         )}
         {incident && (
           <div className="space-y-3 pt-3">
+            <p className="text-[12.5px] font-semibold text-mut">
+              {incident.title}
+              {incident.address ? ` · ${incident.address}` : ""}
+            </p>
             <label className="block">
               <span className="tag text-mut">Resultado</span>
               <select className="input mt-1" value={result} onChange={(e) => setResult(e.target.value)}>
