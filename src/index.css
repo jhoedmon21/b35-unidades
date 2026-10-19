@@ -730,3 +730,16 @@
   .float-panel { padding: 12px !important; }
 }
 
+
+/* -- Píldoras de capas: UNA SOLA LÍNEA desplazable (no crece hacia abajo,
+      deja libres el raíl Destino·Puesto·Norte y los paneles derechos) -- */
+.viper-chipsrow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.viper-chipsrow::-webkit-scrollbar { display: none; }
+.viper-chipsrow > * { flex: 0 0 auto; }

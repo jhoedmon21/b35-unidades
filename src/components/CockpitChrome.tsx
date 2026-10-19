@@ -178,10 +178,11 @@ export default function CockpitChrome({
       </div>
 
       {/* Píldoras de capas del topbar — COLAPSABLES: un toque las esconde,
-          otro las devuelve (ancho acotado: no invade la columna derecha) */}
-      <div className="pointer-events-none absolute left-3 top-12 z-[12] max-w-[calc(100vw-21rem)]">
+          otro las devuelve. UNA SOLA LÍNEA desplazable: nunca crece hacia
+          abajo ni tapa el raíl (Destino · Puesto · Norte) ni los paneles. */}
+      <div className="pointer-events-none absolute left-3 top-12 z-[12] max-w-[calc(100vw-14rem)] md:max-w-[calc(100vw-21rem)]">
         {chipsOpen ? (
-          <div className="pointer-events-auto flex flex-wrap gap-2">
+          <div className="viper-chipsrow pointer-events-auto">
             <button
               type="button"
               className={cx("viper-chip", showHydrants && "on")}

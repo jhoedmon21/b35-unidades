@@ -34,10 +34,12 @@ const HAZARD_COLOR: Record<DangerZoneDTO["level"], string> = {
 };
 
 /** Velocidad REAL del vehículo (km/h) para el velocímetro del modo
- *  conducción (guiño VIPER). Fuente principal: la velocidad nativa que
- *  entrega el GPS (coords.speed, m/s — doppler del receptor); SOLO si el
- *  receptor no la entrega, se estima el avance entre arreglos con promedio
- *  móvil exponencial para amortiguar el jitter. */
+ *  conducción (guiño VIPER). Fuente principal: la velocidad doppler que
+ *  entrega el GPS nativo (coords.speed, m/s). Dos correcciones duales:
+ *  · si el receptor reporta ~0 pero los arreglos avanzan claramente, el
+ *    doppler está «colgado» y se estima con la posición (nunca inventa);
+ *  · si NO hay doppler, se estima por distancia/tiempo con compuerta de
+ *    jitter para que en parado el ruido del GPS no pinte velocidades. */
 function useSpeedKmh(pos: { lat: number; lng: number; speed: number | null } | null): number {
   const [kmh, setKmh] = useState(0);
   const prev = useRef<{ lat: number; lng: number; t: number } | null>(null);
@@ -45,24 +47,40 @@ function useSpeedKmh(pos: { lat: number; lng: number; speed: number | null } | n
   const lng = pos?.lng;
   const gpsSpeed = pos?.speed;
   useEffect(() => {
-    // 1) Velocidad auténtica del GPS (no se genera ni se estima)
-    if (gpsSpeed != null && Number.isFinite(gpsSpeed) && gpsSpeed >= 0) {
-      const v = Math.round(gpsSpeed * 3.6);
-      setKmh(v >= 3 ? v : 0);
-      return;
-    }
-    // 2) Complemento solo si el receptor no entrega doppler
     if (lat == null || lng == null) return;
     const now = Date.now();
     const last = prev.current;
     prev.current = { lat, lng, t: now };
-    // Arreglos separados por <2 s no dan velocidad confiable: esperar
-    if (!last || now - last.t < 2000) return;
-    const dtS = (now - last.t) / 1000;
-    const instant = (haversineM({ lat: last.lat, lng: last.lng }, { lat, lng }) / dtS) * 3600;
+    // Distancia/tiempo entre arreglos: <2 s no es confiable (jitter GPS)
+    const dtMs = last ? now - last.t : 0;
+    const instant =
+      last != null && dtMs >= 2000
+        ? (haversineM({ lat: last.lat, lng: last.lng }, { lat, lng }) / (dtMs / 1000)) * 3600
+        : null;
+    // 1) DOPPLER real del GPS (m/s → km/h)
+    if (gpsSpeed != null && Number.isFinite(gpsSpeed) && gpsSpeed >= 0) {
+      const dop = gpsSpeed * 3.6;
+      if (dop >= 3) {
+        setKmh(Math.round(dop));
+        return;
+      }
+      if (instant != null && instant > 12) {
+        // Posiciones claramente avanzando con doppler pegado en 0
+        setKmh((p) => Math.round(Math.min(instant, 160) * 0.45 + p * 0.55));
+      } else {
+        setKmh(0); // parada de verdad
+      }
+      return;
+    }
+    // 2) Sin doppler: solo estimación por distancia/tiempo
+    if (instant == null) return;
+    if (instant < 4) {
+      setKmh(0); // deriva de reposo (10–20 m): no pintar falsos km/h
+      return;
+    }
     setKmh((p) => Math.round(Math.min(instant, 160) * 0.45 + p * 0.55));
   }, [lat, lng, gpsSpeed]);
-  // GPS en reposo oscila ±10 km/h de puro ruido: mostrar 0 por debajo de 3
+  // GPS parado oscila: mostrar 0 por debajo de 3 km/h
   return kmh < 3 ? 0 : kmh;
 }
 
