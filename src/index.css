@@ -874,3 +874,75 @@
   font-size: 10px;
   color: var(--mut2);
 }
+
+/* -- Dentro del chat: los mensajes de la central son ALERTAS ------
+   Tarjeta con borde rojo, rótulo «Mensaje de la central» y etiqueta
+   NUEVO para los que llegaron sin leer (o mientras el chat abierto). */
+.chat-alert-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, var(--fire), var(--fire-deep));
+  color: #fff;
+  padding: 8px 10px;
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  animation: chat-alert-glow 1.3s ease-in-out infinite;
+}
+.chat-msg-central {
+  max-width: 92%;
+  border: 2px solid color-mix(in srgb, var(--fire) 55%, transparent);
+  border-left: 6px solid var(--fire);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--fire) 7%, var(--panel));
+  padding: 8px 10px;
+}
+.chat-msg-central.chat-new {
+  animation: chat-new-glow 1.4s ease-in-out infinite;
+}
+@keyframes chat-new-glow {
+  0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--fire) 40%, transparent), 0 6px 18px rgb(200 30 20 / 0.22); }
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--fire) 16%, transparent), 0 8px 26px rgb(200 30 20 / 0.4); }
+}
+.chat-hd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fire);
+}
+.chat-hd .chat-time {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--mut2);
+}
+.chat-newpill {
+  display: inline-block;
+  border-radius: 999px;
+  background: var(--fire);
+  color: #fff;
+  padding: 1px 7px;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  animation: chat-newpill-soft 1.1s ease-in-out infinite;
+}
+@keyframes chat-newpill-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-alert-bar,
+  .chat-msg-central.chat-new,
+  .chat-newpill {
+    animation: none;
+  }
+}

@@ -5,7 +5,7 @@
 //  una sola ventana, el mapa manda.
 // ============================================================
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BellRinging,
   DownloadSimple,
@@ -92,7 +92,7 @@ function Row({ label, value }: { label: string; value: string | null }) {
 /* ---------- CHAT con la central (antes /mensajes) ---------- */
 
 export function ChatSheet({ onClose }: { onClose: () => void }) {
-  const { chat, refreshChat, sendChatMsg, sendVoiceMsg, callUrgent, markChatSeen, notify } = useApp();
+  const { chat, refreshChat, sendChatMsg, sendVoiceMsg, callUrgent, markChatSeen, notify, unreadChat } = useApp();
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -103,6 +103,25 @@ export function ChatSheet({ onClose }: { onClose: () => void }) {
   const secsRef = useRef(0);
   const urgentNextRef = useRef(false);
   const [recSecs, setRecSecs] = useState<number | null>(null);
+
+  // ---------- Avisos «NUEVO»: mensajes de la central sin leer ----------
+  // Cuántos avisos llegaron antes de abrir el chat (se captura ANTES de
+  // markChatSeen para poder marcarlos con la etiqueta NUEVO).
+  const [initialUnread] = useState(unreadChat);
+  // Mensajes que llegan MIENTRAS el chat está abierto: destello también
+  const flashRef = useRef<number | null>(null);
+  const [flashIds, setFlashIds] = useState<ReadonlySet<number>>(() => new Set());
+  useEffect(() => {
+    const last = (chat ?? []).filter((m) => m.from === "central").at(-1)?.id ?? null;
+    if (last != null && flashRef.current != null && last !== flashRef.current) {
+      setFlashIds((s) => new Set(s).add(last));
+    }
+    if (last != null) flashRef.current = last;
+  }, [chat]);
+  const newIds = useMemo(() => {
+    const central = (chat ?? []).filter((m) => m.from === "central");
+    return new Set(central.slice(-initialUnread).map((m) => m.id));
+  }, [chat, initialUnread]);
 
   useEffect(() => {
     void refreshChat();
@@ -210,6 +229,13 @@ export function ChatSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <Sheet title="Chat · Central" onClose={onClose}>
+      {/* Aviso dentro del propio chat mientras haya mensajes nuevos */}
+      {(initialUnread > 0 || flashIds.size > 0) && (
+        <div className="chat-alert-bar" role="status">
+          <Siren size={14} weight="fill" aria-hidden="true" />
+          La central te escribió — responde aquí abajo
+        </div>
+      )}
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-lg border border-line bg-panel2 p-2.5">
         {!chat && <p className="text-[13px] text-mut">Cargando mensajes…</p>}
         {chat?.length === 0 && (
@@ -222,49 +248,62 @@ export function ChatSheet({ onClose }: { onClose: () => void }) {
           const callUrl = callRest?.startsWith("/api/media/") ? callRest : null;
           const callCaption = callRest && !callUrl ? callRest.trim() : null;
           const isVoice = audioUrl != null || callRest != null;
-          return (
-            <div key={m.id} className={cx("flex", m.from === "unidad" ? "justify-end" : "justify-start")}>
-              <div
-                className={cx(
-                  "max-w-[85%] rounded-xl border px-3 py-2 text-[14px] leading-snug",
-                  m.from === "unidad" ? "border-fire/50 bg-fire/10 text-tx" : "border-line bg-panel text-tx",
-                )}
-              >
-                {isVoice ? (
+          const own = m.from === "unidad";
+          const isNew = !own && (newIds.has(m.id) || flashIds.has(m.id));
+          const hora = new Date(m.at).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+          // Cuerpo (texto o nota de voz) — igual para ambos lados
+          const body = isVoice ? (
+            <>
+              <p className="flex items-center gap-1.5 text-[11.5px] font-bold">
+                {callRest != null ? (
                   <>
-                    <p className="flex items-center gap-1.5 text-[11.5px] font-bold">
-                      {callRest != null ? (
-                        <>
-                          <Megaphone size={13} className="text-fire" aria-hidden="true" /> Llamado urgente de voz
-                        </>
-                      ) : (
-                        <>
-                          <Microphone size={13} className="text-fire" aria-hidden="true" /> Nota de voz
-                        </>
-                      )}
-                    </p>
-                    {audioUrl && (
-                      <audio className="mt-2 w-[240px]" controls preload="none" src={audioUrl}>
-                        Tu navegador no reproduce este audio.
-                      </audio>
-                    )}
-                    {callUrl && (
-                      <audio className="mt-2 w-[240px]" controls preload="none" autoPlay src={callUrl}>
-                        Tu navegador no reproduce este audio.
-                      </audio>
-                    )}
-                    {callCaption && (
-                      <p className="mt-1 break-words whitespace-pre-wrap">{callCaption}</p>
-                    )}
+                    <Megaphone size={13} className="text-fire" aria-hidden="true" /> Llamado urgente de voz
                   </>
                 ) : (
-                  <p className="break-words whitespace-pre-wrap">{m.body}</p>
+                  <>
+                    <Microphone size={13} className="text-fire" aria-hidden="true" /> Nota de voz
+                  </>
                 )}
-                <p className="mt-0.5 text-right text-[10px] text-mut" suppressHydrationWarning>
-                  {m.from === "unidad" ? "tú" : "central"} ·{" "}
-                  {new Date(m.at).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
-                </p>
-              </div>
+              </p>
+              {audioUrl && (
+                <audio className="mt-2 w-[240px]" controls preload="none" src={audioUrl}>
+                  Tu navegador no reproduce este audio.
+                </audio>
+              )}
+              {callUrl && (
+                <audio className="mt-2 w-[240px]" controls preload="none" autoPlay src={callUrl}>
+                  Tu navegador no reproduce este audio.
+                </audio>
+              )}
+              {callCaption && <p className="mt-1 break-words whitespace-pre-wrap">{callCaption}</p>}
+            </>
+          ) : (
+            <p className="break-words whitespace-pre-wrap">{m.body}</p>
+          );
+          return (
+            <div key={m.id} className={cx("flex", own && "justify-end")}>
+              {own ? (
+                <div className="max-w-[85%] rounded-xl border border-fire/50 bg-fire/10 px-3 py-2 text-[14px] leading-snug text-tx">
+                  {body}
+                  <p className="mt-0.5 text-right text-[10px] text-mut" suppressHydrationWarning>
+                    tú · {hora}
+                  </p>
+                </div>
+              ) : (
+                /* Mensaje de la CENTRAL: tarjeta de ALERTA — borde rojo,
+                   rótulo y etiqueta «NUEVO» si acaba de llegar */
+                <div className={cx("chat-msg-central", isNew && "chat-new")}>
+                  <p className="chat-hd">
+                    <Siren size={13} weight="fill" aria-hidden="true" />
+                    Mensaje de la central
+                    {isNew && <span className="chat-newpill">NUEVO</span>}
+                    <span className="chat-time" suppressHydrationWarning>
+                      {hora}
+                    </span>
+                  </p>
+                  <div className="mt-1 text-[14.5px] leading-snug text-tx">{body}</div>
+                </div>
+              )}
             </div>
           );
         })}
