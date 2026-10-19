@@ -687,15 +687,6 @@
   }
 }
 
-/* Anillo del llamado de voz (VoiceCallPanel) */
-@keyframes callPulse {
-  0% { box-shadow: 0 0 0 0 rgb(200 41 26 / 0.55); }
-  70% { box-shadow: 0 0 0 16px rgb(200 41 26 / 0); }
-  100% { box-shadow: 0 0 0 0 rgb(200 41 26 / 0); }
-}
-.call-pulse { animation: callPulse 1.5s ease-out infinite; }
-
-
 /* ===== Responsiva total de la cabina + controles colapsables ===== */
 .viper-fold {
   pointer-events: auto;
@@ -805,7 +796,7 @@
 
 /* -- Chat: aviso llamativo cuando la central escribe ---------------
    La franja superior queda fija hasta que se ABRE el chat (y al
-   abrirse queda «visto»); el chip «Chat» también pasa a rojo. */
+   abrirse queda ï¿½vistoï¿½); el chip ï¿½Chatï¿½ tambiï¿½n pasa a rojo. */
 .chat-alert {
   position: fixed;
   inset-inline: 0;
@@ -845,7 +836,7 @@
   0%, 100% { filter: brightness(1); }
   50% { filter: brightness(1.3); }
 }
-/* El chip «Chat» del topbar en rojo pulsante mientras haya sin leer */
+/* El chip ï¿½Chatï¿½ del topbar en rojo pulsante mientras haya sin leer */
 .viper-chip.chat-alert-chip {
   background: var(--fire);
   border-color: color-mix(in srgb, var(--fire) 55%, white);
@@ -867,7 +858,7 @@
   }
 }
 
-/* Crédito del mapa integrado a la tarjeta (reemplaza al control flotante) */
+/* Crï¿½dito del mapa integrado a la tarjeta (reemplaza al control flotante) */
 .map-credit {
   margin-top: 6px;
   text-align: right;
@@ -876,7 +867,7 @@
 }
 
 /* -- Dentro del chat: los mensajes de la central son ALERTAS ------
-   Tarjeta con borde rojo, rótulo «Mensaje de la central» y etiqueta
+   Tarjeta con borde rojo, rï¿½tulo ï¿½Mensaje de la centralï¿½ y etiqueta
    NUEVO para los que llegaron sin leer (o mientras el chat abierto). */
 .chat-alert-bar {
   display: flex;

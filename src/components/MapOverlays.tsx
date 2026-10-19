@@ -10,7 +10,6 @@ import {
   BellRinging,
   DownloadSimple,
   MapPin,
-  Megaphone,
   Microphone,
   PaperPlaneTilt,
   Power,
@@ -92,7 +91,7 @@ function Row({ label, value }: { label: string; value: string | null }) {
 /* ---------- CHAT con la central (antes /mensajes) ---------- */
 
 export function ChatSheet({ onClose }: { onClose: () => void }) {
-  const { chat, refreshChat, sendChatMsg, sendVoiceMsg, callUrgent, markChatSeen, notify, unreadChat } = useApp();
+  const { chat, refreshChat, sendChatMsg, sendVoiceMsg, markChatSeen, notify, unreadChat } = useApp();
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -101,7 +100,6 @@ export function ChatSheet({ onClose }: { onClose: () => void }) {
   const recRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const secsRef = useRef(0);
-  const urgentNextRef = useRef(false);
   const [recSecs, setRecSecs] = useState<number | null>(null);
 
   // ---------- Avisos «NUEVO»: mensajes de la central sin leer ----------
@@ -174,17 +172,14 @@ export function ChatSheet({ onClose }: { onClose: () => void }) {
         stream.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
         const blob = new Blob(chunksRef.current, { type: rec.mimeType || mime || "audio/webm" });
-        const urgent = urgentNextRef.current;
-        urgentNextRef.current = false;
         setRecSecs(null);
         recRef.current = null;
-        void sendAudioBlob(blob, urgent);
+        void sendAudioBlob(blob);
       };
       rec.start();
       recRef.current = rec;
       setRecSecs(0);
     } catch {
-      urgentNextRef.current = false;
       notify("No se pudo usar el micrófono", "error");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -201,7 +196,7 @@ export function ChatSheet({ onClose }: { onClose: () => void }) {
     return () => window.clearInterval(id);
   }, [recSecs, stopRec]);
 
-  async function sendAudioBlob(blob: Blob, urgent: boolean) {
+  async function sendAudioBlob(blob: Blob) {
     setBusy(true);
     try {
       const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -210,21 +205,11 @@ export function ChatSheet({ onClose }: { onClose: () => void }) {
         bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       }
       const mime = (blob.type || "audio/webm").split(";")[0];
-      const ok = await sendVoiceMsg(`data:${mime};base64,${btoa(bin)}`, urgent, draft.trim());
+      const ok = await sendVoiceMsg(`data:${mime};base64,${btoa(bin)}`, draft.trim());
       if (ok) setDraft("");
     } finally {
       setBusy(false);
     }
-  }
-
-  function callCentral() {
-    if (recSecs != null) {
-      // Grabación en curso → la nota se envía como LLAMADO urgente
-      urgentNextRef.current = true;
-      stopRec();
-      return;
-    }
-    void callUrgent(draft.trim());
   }
 
   return (
@@ -242,12 +227,13 @@ export function ChatSheet({ onClose }: { onClose: () => void }) {
           <p className="text-[13px] text-mut">Sin mensajes. Escribe a la central — la respuesta llega aqui al instante.</p>
         )}
         {chat?.map((m) => {
-          // AUDIO:<url> = nota de voz · LLAMADA:<url> = llamado urgente
+          // AUDIO:<url> = nota de voz · LLAMADA:<…> = llamado de voz (antiguo)
           const audioUrl = m.body.startsWith("AUDIO:") ? m.body.slice(6) : null;
           const callRest = m.body.startsWith("LLAMADA:") ? m.body.slice(8) : null;
           const callUrl = callRest?.startsWith("/api/media/") ? callRest : null;
-          const callCaption = callRest && !callUrl ? callRest.trim() : null;
-          const isVoice = audioUrl != null || callRest != null;
+          const callText = callRest != null && callUrl == null ? callRest.trim() : null;
+          const voiceUrl = audioUrl ?? callUrl;
+          const isVoice = voiceUrl != null;
           const own = m.from === "unidad";
           const isNew = !own && (newIds.has(m.id) || flashIds.has(m.id));
           const hora = new Date(m.at).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
@@ -255,30 +241,14 @@ export function ChatSheet({ onClose }: { onClose: () => void }) {
           const body = isVoice ? (
             <>
               <p className="flex items-center gap-1.5 text-[11.5px] font-bold">
-                {callRest != null ? (
-                  <>
-                    <Megaphone size={13} className="text-fire" aria-hidden="true" /> Llamado urgente de voz
-                  </>
-                ) : (
-                  <>
-                    <Microphone size={13} className="text-fire" aria-hidden="true" /> Nota de voz
-                  </>
-                )}
+                <Microphone size={13} className="text-fire" aria-hidden="true" /> Nota de voz
               </p>
-              {audioUrl && (
-                <audio className="mt-2 w-[240px]" controls preload="none" src={audioUrl}>
-                  Tu navegador no reproduce este audio.
-                </audio>
-              )}
-              {callUrl && (
-                <audio className="mt-2 w-[240px]" controls preload="none" autoPlay src={callUrl}>
-                  Tu navegador no reproduce este audio.
-                </audio>
-              )}
-              {callCaption && <p className="mt-1 break-words whitespace-pre-wrap">{callCaption}</p>}
+              <audio className="mt-2 w-[240px]" controls preload="none" src={voiceUrl ?? undefined}>
+                Tu navegador no reproduce este audio.
+              </audio>
             </>
           ) : (
-            <p className="break-words whitespace-pre-wrap">{m.body}</p>
+            <p className="break-words whitespace-pre-wrap">{callText ?? m.body}</p>
           );
           return (
             <div key={m.id} className={cx("flex", own && "justify-end")}>
@@ -342,15 +312,6 @@ export function ChatSheet({ onClose }: { onClose: () => void }) {
           autoComplete="off"
           maxLength={1000}
         />
-        <button
-          type="button"
-          className="btn shrink-0 bg-fire px-3 py-2.5 text-white"
-          onClick={callCentral}
-          disabled={busy}
-          title="Llamar por voz: la central sale con campana de atención"
-        >
-          <Megaphone size={16} aria-hidden="true" />
-        </button>
         <button className="btn btn-primary shrink-0 px-3.5 py-2.5" type="submit" disabled={busy || !draft.trim()}>
           <PaperPlaneTilt size={16} aria-hidden="true" /> {busy ? "…" : "Enviar"}
         </button>

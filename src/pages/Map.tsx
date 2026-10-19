@@ -22,7 +22,6 @@ import TacticalMap, { type TacHazard, type TacMarker } from "../components/Tacti
 import SceneMap from "../components/SceneMap";
 import CockpitChrome from "../components/CockpitChrome";
 import { ChatSheet, CloseSheet, EquipoSheet, FichaSheet, MisionesSheet, ReportSheet, SettingsSheet } from "../components/MapOverlays";
-import VoiceCallPanel from "../components/VoiceCallPanel";
 import { INCIDENT_STATUS_LABEL, SEVERITY_LABEL, UNIT_STATUS, incidentKind } from "../lib/status";
 import type { BasicIncidentDTO, DangerZoneDTO, HydrantDTO, MissionPayload, UnitStatus } from "../lib/types";
 import { useApp } from "../state/AppContext";
@@ -114,7 +113,7 @@ function hazardsAhead(route: RouteInfo, fromIdx: number, zones: DangerZoneDTO[])
 }
 
 export default function MapPage() {
-  const { mission, missionDetail, position, unit, alerts, alertHydrants, alertZones, user, setStatus, acceptMission, unreadChat, notify, voiceCall } = useApp();
+  const { mission, missionDetail, position, unit, alerts, alertHydrants, alertZones, user, setStatus, acceptMission, unreadChat, notify } = useApp();
   const [search, setSearch] = useSearchParams();
   const [cached, setCached] = useState<MissionPayload | null>(null);
   const [route, setRoute] = useState<RouteInfo | null>(null);
@@ -397,9 +396,8 @@ export default function MapPage() {
     <>
       {/* Mensaje sin leer de la central: franja superior ROJA Y PULSANTE
           que no se va sola — un toque abre el Chat (y al abrirse queda
-          «visto»). Es el camino más corto para responder a la central.
-          Se oculta si ya hay un llamado de voz a pantalla completa. */}
-      {unreadChat > 0 && !chatOpen && !voiceCall && (
+          «visto»). Es el camino más corto para responder a la central. */}
+      {unreadChat > 0 && !chatOpen && (
         <button
           type="button"
           className="chat-alert"
@@ -423,14 +421,6 @@ export default function MapPage() {
       {reportOpen && <ReportSheet onClose={() => setReportOpen(false)} />}
       {fichaOpen && <FichaSheet onClose={() => setFichaOpen(false)} />}
       {closeOpen && <CloseSheet onClose={() => setCloseOpen(false)} />}
-      {/* Llamado de VOZ de la central: campana + panel a pantalla completa */}
-      {voiceCall && (
-        <VoiceCallPanel
-          onOpenChat={() => {
-            setChatOpen(true);
-          }}
-        />
-      )}
     </>
   );
   // ---------- VISTA BÁSICA (sin misión): emergencias activas para todos ----------
