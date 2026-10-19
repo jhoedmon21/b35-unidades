@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Map as MlMap } from "maplibre-gl";
-import { CalendarBlank, Clock, Crosshair, NavigationArrow, Siren, X } from "@phosphor-icons/react";
+import { CalendarBlank, CaretDown, Clock, Crosshair, NavigationArrow, Siren, X } from "@phosphor-icons/react";
 import { db, getMeta, setMeta } from "../db/db";
 import { api } from "../lib/api";
 import { cx } from "../lib/cx";
@@ -34,53 +34,60 @@ const HAZARD_COLOR: Record<DangerZoneDTO["level"], string> = {
 };
 
 /** Velocidad REAL del vehículo (km/h) para el velocímetro del modo
- *  conducción (guiño VIPER). Fuente principal: la velocidad doppler que
- *  entrega el GPS nativo (coords.speed, m/s). Dos correcciones duales:
- *  · si el receptor reporta ~0 pero los arreglos avanzan claramente, el
- *    doppler está «colgado» y se estima con la posición (nunca inventa);
- *  · si NO hay doppler, se estima por distancia/tiempo con compuerta de
- *    jitter para que en parado el ruido del GPS no pinte velocidades. */
-function useSpeedKmh(pos: { lat: number; lng: number; speed: number | null } | null): number {
+ *  conducción (guiño VIPER). REGLA DE ORO: nunca se muestra un número
+ *  inventado — parado es 0 SIEMPRE.
+ *  · Fuente primaria: la velocidad doppler del GPS (coords.speed, m/s);
+ *    se muestra en el acto cuando es clara (≥8 km/h).
+ *  · La ESTIMACIÓN por distancia/tiempo solo se usa como complemento y
+ *    después de que DOS arreglos consecutivos confirmen avance por
+ *    encima del piso de ruido del propio GPS (accuracy): así la deriva
+ *    de reposo (10–40 m) no pinta km/h fantasma cuando la unidad está
+ *    detenida, ni el doppler «pegado en 0» de algún receptor. */
+function useSpeedKmh(
+  pos: { lat: number; lng: number; speed: number | null; accuracy?: number | null } | null,
+): number {
   const [kmh, setKmh] = useState(0);
-  const prev = useRef<{ lat: number; lng: number; t: number } | null>(null);
+  const prev = useRef<{ lat: number; lng: number; t: number; acc: number } | null>(null);
+  const streak = useRef(0);
   const lat = pos?.lat;
   const lng = pos?.lng;
-  const gpsSpeed = pos?.speed;
+  const gpsSpeed = pos?.speed ?? null;
+  const acc = pos?.accuracy ?? null;
   useEffect(() => {
     if (lat == null || lng == null) return;
     const now = Date.now();
     const last = prev.current;
-    prev.current = { lat, lng, t: now };
-    // Distancia/tiempo entre arreglos: <2 s no es confiable (jitter GPS)
+    prev.current = { lat, lng, t: now, acc: acc ?? 20 };
+    // Piso de ruido (m): un desplazamiento menor es deriva del GPS, no viaje
+    const floorM = Math.max(12, (acc ?? 20) * 0.9 + (last?.acc ?? 20) * 0.9);
     const dtMs = last ? now - last.t : 0;
-    const instant =
+    const metered =
       last != null && dtMs >= 2000
-        ? (haversineM({ lat: last.lat, lng: last.lng }, { lat, lng }) / (dtMs / 1000)) * 3600
+        ? haversineM({ lat: last.lat, lng: last.lng }, { lat, lng })
         : null;
+    const instant = metered != null ? (metered / (dtMs / 1000)) * 3600 : null;
+    streak.current = metered != null && metered > floorM ? streak.current + 1 : 0;
+    const est = streak.current >= 2 && instant != null ? Math.min(instant, 160) : null;
     // 1) DOPPLER real del GPS (m/s → km/h)
     if (gpsSpeed != null && Number.isFinite(gpsSpeed) && gpsSpeed >= 0) {
       const dop = gpsSpeed * 3.6;
       if (dop >= 3) {
-        setKmh(Math.round(dop));
-        return;
-      }
-      if (instant != null && instant > 12) {
-        // Posiciones claramente avanzando con doppler pegado en 0
-        setKmh((p) => Math.round(Math.min(instant, 160) * 0.45 + p * 0.55));
+        setKmh(Math.round(dop)); // doppler real: mostrarlo de inmediato
+      } else if (est != null) {
+        setKmh((p) => Math.round(Math.max(dop, est) * 0.45 + p * 0.55));
       } else {
-        setKmh(0); // parada de verdad
+        setKmh(0); // parada de verdad (o avance aún sin confirmar)
       }
       return;
     }
-    // 2) Sin doppler: solo estimación por distancia/tiempo
-    if (instant == null) return;
-    if (instant < 4) {
-      setKmh(0); // deriva de reposo (10–20 m): no pintar falsos km/h
+    // 2) Sin doppler: SOLO con avance confirmado por 2 arreglos seguidos
+    if (est == null) {
+      setKmh(0);
       return;
     }
-    setKmh((p) => Math.round(Math.min(instant, 160) * 0.45 + p * 0.55));
-  }, [lat, lng, gpsSpeed]);
-  // GPS parado oscila: mostrar 0 por debajo de 3 km/h
+    setKmh((p) => Math.round(est * 0.45 + p * 0.55));
+  }, [lat, lng, gpsSpeed, acc]);
+  // Velocidades menores a 3 km/h se muestran como 0
   return kmh < 3 ? 0 : kmh;
 }
 
@@ -129,6 +136,26 @@ export default function MapPage() {
   const [equipoOpen, setEquipoOpen] = useState(false);
   const [misionesOpen, setMisionesOpen] = useState(false);
   const [dispatchPhone, setDispatchPhone] = useState("");
+  // Ficha del incidente al pie: PLEGADA en pantallas angostas — solo el
+  // título con chevron; abrir un toque muestra el detalle completo.
+  const [briefOpen, setBriefOpen] = useState((): boolean => {
+    try {
+      return !window.matchMedia("(max-width: 760px)").matches;
+    } catch {
+      return true;
+    }
+  });
+  const chevBtn = (
+    <button
+      type="button"
+      className="viper-fold shrink-0"
+      onClick={() => setBriefOpen((v) => !v)}
+      aria-expanded={briefOpen}
+      aria-label="Plegar o desplegar la ficha del incidente"
+    >
+      <CaretDown size={14} aria-hidden="true" />
+    </button>
+  );
   useEffect(() => {
     void getMeta<{ dispatcherPhone?: string }>("syncConfig").then((config) => {
       setDispatchPhone(config?.dispatcherPhone ?? "");
@@ -137,8 +164,10 @@ export default function MapPage() {
 
   // Posición de la unidad: GPS de la tablet (con velocidad doppler real); si no, la que conoce la central
   const unitPos = useMemo(() => {
-    if (position) return { lat: position.lat, lng: position.lng, speed: position.speed };
-    if (unit?.lat != null && unit?.lng != null) return { lat: unit.lat, lng: unit.lng, speed: null };
+    if (position)
+      return { lat: position.lat, lng: position.lng, speed: position.speed, accuracy: position.accuracy };
+    if (unit?.lat != null && unit?.lng != null)
+      return { lat: unit.lat, lng: unit.lng, speed: null, accuracy: null };
     return null;
   }, [position, unit?.lat, unit?.lng]);
 
@@ -548,7 +577,7 @@ export default function MapPage() {
               </div>
             )}
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="min-w-0 flex-1 text-[15px]">
+              <div className="min-w-0 flex-1 truncate text-[14px]">
                 {unit
                   ? "Sin misión activa — hidrantes cercanos en el mapa. Al despachar, la ruta tipo Uber aparece aquí."
                   : "Cuando la central registre una emergencia, sonará la alerta y aquí verás el mapa del accidente."}
@@ -648,38 +677,45 @@ export default function MapPage() {
           )}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="pill" style={{ color: `var(${kind.varName})` }}>
-                  {kind.icon} {kind.label}
+              {/* Título SIEMPRE visible + chevron: plegada no tapa el mapa */}
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="display flex min-w-0 items-center gap-1.5 truncate text-[17px] font-bold">
+                  {kind.icon} {basicIncident.title}
                 </span>
-                <span className="pill" style={{ color: `var(${severity.varName})` }}>
-                  Prioridad {severity.label}
-                </span>
-                <span className="pill text-mut">
-                  {INCIDENT_STATUS_LABEL[basicIncident.status] ?? basicIncident.status}
-                </span>
-                {basicIncident.unitCode && (
-                  <span className="pill text-rescue">Unidad {basicIncident.unitCode}</span>
-                )}
+                {chevBtn}
               </div>
-              <div className="display mt-1 truncate text-[19px] font-bold">{basicIncident.title}</div>
-              <div className="mt-0.5 truncate text-[13.5px] text-tx">{basicIncident.address}</div>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {basicHydrants
-                  .filter((h) => h.situation === "operativo")
-                  .slice(0, 3)
-                  .map((h, i) => (
-                    <span key={h.id} className="pill text-hydrant">
-                      {i + 1} · {hydrantLabel(h.code) ?? `Hidrante #${h.id}`} · {fmtDistance(h.meters)}
+              {briefOpen && (
+                <>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span className="pill" style={{ color: `var(${severity.varName})` }}>
+                      Prioridad {severity.label}
                     </span>
-                  ))}
-              </div>
-              <div className="mt-1 text-[11.5px] text-mut2">
-                Reportado {timeAgo(basicIncident.createdAt)} · {fmtClock(basicIncident.createdAt)} ·{" "}
-                {user?.role === "unidad"
-                  ? "acepta tu despacho para ver la ruta completa"
-                  : "vista básica — el chofer de la unidad asignada ve todos los datos"}
-              </div>
+                    <span className="pill text-mut">
+                      {INCIDENT_STATUS_LABEL[basicIncident.status] ?? basicIncident.status}
+                    </span>
+                    {basicIncident.unitCode && (
+                      <span className="pill text-rescue">Unidad {basicIncident.unitCode}</span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 truncate text-[13.5px] text-tx">{basicIncident.address}</div>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {basicHydrants
+                      .filter((h) => h.situation === "operativo")
+                      .slice(0, 3)
+                      .map((h, i) => (
+                        <span key={h.id} className="pill text-hydrant">
+                          {i + 1} · {hydrantLabel(h.code) ?? `Hidrante #${h.id}`} · {fmtDistance(h.meters)}
+                        </span>
+                      ))}
+                  </div>
+                  <div className="mt-1 text-[11.5px] text-mut2">
+                    Reportado {timeAgo(basicIncident.createdAt)} · {fmtClock(basicIncident.createdAt)} ·{" "}
+                    {user?.role === "unidad"
+                      ? "acepta tu despacho para ver la ruta completa"
+                      : "vista básica — el chofer de la unidad asignada ve todos los datos"}
+                  </div>
+                </>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-3">
               {unitPos && (
