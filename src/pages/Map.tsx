@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Map as MlMap } from "maplibre-gl";
-import { CalendarBlank, CaretDown, CaretRight, ChatCircle, Clock, Crosshair, NavigationArrow, Siren, X } from "@phosphor-icons/react";
+import { CalendarBlank, CaretDown, ChatCircle, Clock, Crosshair, NavigationArrow, Siren, X } from "@phosphor-icons/react";
 import { db, getMeta, setMeta } from "../db/db";
 import { api } from "../lib/api";
 import { cx } from "../lib/cx";
@@ -113,7 +113,7 @@ function hazardsAhead(route: RouteInfo, fromIdx: number, zones: DangerZoneDTO[])
 }
 
 export default function MapPage() {
-  const { mission, missionDetail, position, unit, alerts, alertHydrants, alertZones, user, setStatus, acceptMission, unreadChat, notify } = useApp();
+  const { mission, missionDetail, position, unit, alerts, alertHydrants, alertZones, user, setStatus, acceptMission, unreadChat, chat, notify } = useApp();
   const [search, setSearch] = useSearchParams();
   const [cached, setCached] = useState<MissionPayload | null>(null);
   const [route, setRoute] = useState<RouteInfo | null>(null);
@@ -128,6 +128,19 @@ export default function MapPage() {
   // Paneles flotantes: el mapa es la ÚNICA ventana (chat, ajustes, reporte,
   // ficha y cierre de misión viven aquí, no en páginas separadas)
   const [chatOpen, setChatOpen] = useState(false);
+  // Aviso elegante de mensaje sin leer: aparece al llegar y se desvanece
+  // solo (como los toasts de la central); el chip «Chat» queda en rojo
+  // con el contador hasta abrir el chat.
+  const [chatHint, setChatHint] = useState(false);
+  useEffect(() => {
+    if (unreadChat <= 0 || chatOpen) {
+      setChatHint(false);
+      return;
+    }
+    setChatHint(true);
+    const t = window.setTimeout(() => setChatHint(false), 9000);
+    return () => window.clearTimeout(t);
+  }, [unreadChat, chatOpen]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [fichaOpen, setFichaOpen] = useState(false);
@@ -391,28 +404,42 @@ export default function MapPage() {
     </>
   ) : null;
 
+  // Último mensaje de la central (vista previa del aviso de sin leer)
+  const lastCentralMsg = (() => {
+    const central = (chat ?? []).filter((m) => m.from === "central");
+    const m = central[central.length - 1];
+    if (!m) return null;
+    if (m.body.startsWith("AUDIO:") || m.body.startsWith("LLAMADA:")) return "🎤 Nota de voz";
+    return m.body.length > 110 ? `${m.body.slice(0, 110)}…` : m.body;
+  })();
+
   // Los cinco paneles flotantes (antes eran ventanas separadas)
   const overlays = (
     <>
-      {/* Mensaje sin leer de la central: franja superior ROJA Y PULSANTE
-          que no se va sola — un toque abre el Chat (y al abrirse queda
-          «visto»). Es el camino más corto para responder a la central. */}
-      {unreadChat > 0 && !chatOpen && (
-        <button
-          type="button"
-          className="chat-alert"
-          onClick={() => setChatOpen(true)}
-          aria-label={`${unreadChat} mensaje${unreadChat > 1 ? "s" : ""} de la central sin leer. Toca para responder.`}
-        >
-          <ChatCircle size={21} weight="fill" aria-hidden="true" />
-          <span className="chat-alert-tx">
-            <strong>Mensaje de la central</strong>
-            <small>
-              {unreadChat > 1 ? `${unreadChat} sin leer · ` : ""}Toca para responder
-            </small>
+      {/* Mensaje sin leer de la central: TARJETA elegante (estilo central)
+          que se desvanece sola; el chip «Chat» queda en rojo con el
+          contador hasta abrir el chat y responder. */}
+      {chatHint && !chatOpen && unreadChat > 0 && (
+        <div className="chat-toast" role="status">
+          <span className="chat-toast-ico" aria-hidden="true">
+            <ChatCircle size={15} weight="fill" />
           </span>
-          <CaretRight size={16} weight="bold" aria-hidden="true" />
-        </button>
+          <div className="chat-toast-tx">
+            <strong>
+              Mensaje de la central
+              {unreadChat > 1 && <em> · {unreadChat} sin leer</em>}
+            </strong>
+            {lastCentralMsg && <small>{lastCentralMsg}</small>}
+          </div>
+          <button
+            type="button"
+            className="chat-toast-go"
+            onClick={() => setChatOpen(true)}
+            aria-label={`Abrir el chat y responder (${unreadChat} sin leer)`}
+          >
+            Responder
+          </button>
+        </div>
       )}
       {chatOpen && <ChatSheet onClose={() => setChatOpen(false)} />}
       {equipoOpen && <EquipoSheet onClose={() => setEquipoOpen(false)} />}
