@@ -748,3 +748,23 @@
 }
 .viper-chipsrow::-webkit-scrollbar { display: none; }
 .viper-chipsrow > * { flex: 0 0 auto; }
+
+/* -- Misión colapsable: título con puntos suspensivos junto al chevron -- */
+.viper-maplabel .viper-panelhead { gap: 6px; }
+.viper-maplabel-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--tx);
+  letter-spacing: 0.02em;
+}
+@media (max-width: 560px) {
+  .viper-maplabel-title { font-size: 12.5px; }
+  .viper-maplabel { padding: 7px 10px; }
+  .viper-panel, .viper-maplabel { width: 156px; }
+}

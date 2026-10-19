@@ -114,7 +114,9 @@ export default function CockpitChrome({
 
   /* Colapsar: la fila de opciones se esconde a un toque (se recuerda en el
      equipo) y cada panel de la columna derecha pliega su contenido con el
-     chevron — el mapa queda limpio cuando el chofer no lo necesita. */
+     chevron — el mapa queda limpio cuando el chofer no lo necesita. EN
+     MÓVIL (angosto) todos los paneles parten PLEGADOS: la cabecera mínima
+     no tapa el mapa y el chofer despliega lo que necesite con un toque. */
   const [chipsOpen, setChipsOpen] = useState(() => {
     try {
       return localStorage.getItem("fw-chips") !== "1";
@@ -122,7 +124,15 @@ export default function CockpitChrome({
       return true;
     }
   });
-  const [folds, setFolds] = useState<Record<string, boolean>>({});
+  const [folds, setFolds] = useState<Record<string, boolean>>(() => {
+    try {
+      return window.matchMedia("(max-width: 760px)").matches
+        ? { estado: true, hidrantes: true, vehiculos: true, mision: true }
+        : {};
+    } catch {
+      return {};
+    }
+  });
   const toggleChips = () => {
     setChipsOpen((v) => {
       try {
@@ -334,17 +344,25 @@ export default function CockpitChrome({
             ))}
         </div>
 
-        {/* Etiqueta clara de la ficha (maplabel del mock) */}
+        {/* Etiqueta clara de la ficha (maplabel del mock) — colapsable para
+            no tapar el mapa en la tablet/phone */}
         {preplan && (
           <div className="viper-maplabel pointer-events-auto">
-            <strong>▣ {preplan.preplan.title}</strong>
-            <p className="addr">{preplan.preplan.address}</p>
-            <p className="addr">
-              A <span className="font-bold">{fmtDistance(preplan.meters)}</span> de la escena
-            </p>
-            <button type="button" className="viper-maplabel-link" onClick={onFicha}>
-              Ver plan de emergencia →
-            </button>
+            <div className="viper-panelhead">
+              <span className="viper-maplabel-title">▣ {preplan.preplan.title}</span>
+              {foldBtn("mision", "Misión")}
+            </div>
+            {!folds.mision && (
+              <>
+                <p className="addr">{preplan.preplan.address}</p>
+                <p className="addr">
+                  A <span className="font-bold">{fmtDistance(preplan.meters)}</span> de la escena
+                </p>
+                <button type="button" className="viper-maplabel-link" onClick={onFicha}>
+                  Ver plan de emergencia →
+                </button>
+              </>
+            )}
           </div>
         )}
 
