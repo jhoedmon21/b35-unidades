@@ -861,13 +861,15 @@ export default function MapPage() {
                   </span>
                 )}
                 {eta ? (
-                  <span className="num-hero text-[40px] leading-none text-fire">{eta}</span>
+                  <span className="num-hero text-[clamp(24px,7vw,40px)] leading-none text-fire">{eta}</span>
                 ) : (
                   <span className="text-[14px] text-mut">
                     {tripStart ? "Calculando ruta…" : "Esperando ubicación…"}
                   </span>
                 )}
-                {dist && <span className="num-hero text-[24px] leading-none opacity-80">{dist}</span>}
+                {dist && (
+                  <span className="num-hero text-[clamp(16px,4.2vw,24px)] leading-none opacity-80">{dist}</span>
+                )}
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-mut2">
                 {routeBusy && <span>Actualizando…</span>}

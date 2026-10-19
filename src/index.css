@@ -768,3 +768,9 @@
   .viper-maplabel { padding: 7px 10px; }
   .viper-panel, .viper-maplabel { width: 156px; }
 }
+
+/* -- Móvil: botones de misión compactos (la columna de órdenes no devora
+      media pantalla) — misma jerarquía táctil, menos alto -- */
+@media (max-width: 560px) {
+  .viper-act { min-height: 34px; margin-top: 4px; font-size: 12.5px; }
+}
