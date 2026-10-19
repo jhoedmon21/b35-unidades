@@ -866,3 +866,11 @@
     animation: none;
   }
 }
+
+/* Crédito del mapa integrado a la tarjeta (reemplaza al control flotante) */
+.map-credit {
+  margin-top: 6px;
+  text-align: right;
+  font-size: 10px;
+  color: var(--mut2);
+}
