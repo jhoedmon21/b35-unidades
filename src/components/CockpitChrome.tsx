@@ -57,6 +57,8 @@ interface Props {
   onSettingsToggle?: () => void;
   /** Panel de órdenes al pie de la columna derecha (solo con misión) */
   actions?: ReactNode;
+  /** Hay despacho PENDIENTE de aceptar: las órdenes NO se pliegan solas */
+  acceptPending?: boolean;
   /** Mover mapa a un punto (lng,lat — orden MapLibre) */
   flyTo: (lat: number, lng: number, zoom?: number) => void;
   /** Volver al encuadre automático: sale del modo conducción */
@@ -106,6 +108,7 @@ export default function CockpitChrome({
   onFicha,
   onSettingsToggle,
   actions,
+  acceptPending = false,
   flyTo,
   exitNav,
 }: Props) {
@@ -127,7 +130,14 @@ export default function CockpitChrome({
   const [folds, setFolds] = useState<Record<string, boolean>>((): Record<string, boolean> => {
     try {
       if (!window.matchMedia("(max-width: 760px)").matches) return {};
-      return { estado: true, hidrantes: true, vehiculos: true, mision: true };
+      return {
+        estado: true,
+        hidrantes: true,
+        vehiculos: true,
+        mision: true,
+        // Las órdenes se pliegan salvo que haya un despacho por aceptar
+        ...(acceptPending ? {} : { acciones: true }),
+      };
     } catch {
       return {};
     }
@@ -417,8 +427,18 @@ export default function CockpitChrome({
           </div>
         )}
 
-        {/* Órdenes de la misión: aceptar, estados de unidad, ir al cierre */}
-        {actions && <div className="viper-panel pointer-events-auto shrink-0">{actions}</div>}
+        {/* Órdenes de la misión: aceptar, estados de unidad, ir al cierre.
+            Con cabecera plegable: en móvil arranca colapsada y no devora
+            media pantalla — salvo que haya un despacho pendiente. */}
+        {actions && (
+          <div className="viper-panel pointer-events-auto shrink-0">
+            <div className="viper-panelhead">
+              <span>▸ Órdenes</span>
+              {foldBtn("acciones", "Órdenes")}
+            </div>
+            {!folds.acciones && <div className="mt-1">{actions}</div>}
+          </div>
+        )}
       </div>
     </>
     </div>

@@ -774,3 +774,15 @@
 @media (max-width: 560px) {
   .viper-act { min-height: 34px; margin-top: 4px; font-size: 12.5px; }
 }
+
+/* -- Móvil: tarjeta de misión afinada -----------------------------
+    · Hidrantes en UNA línea deslizable (no 3 filas de píldoras)
+    · Sirena compacta y columna derecha que no invade la tarjeta  */
+@media (max-width: 560px) {
+  .mission-hydrants { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .mission-hydrants::-webkit-scrollbar { display: none; }
+  .mission-hydrants .pill { flex: 0 0 auto; }
+  .mission-siren { width: 36px; height: 36px; }
+  .mission-siren svg { width: 18px; height: 18px; }
+  .viper-col { max-height: calc(100dvh - 13rem); }
+}

@@ -808,6 +808,7 @@ export default function MapPage() {
         onSettingsToggle={() => setSettingsOpen((v) => !v)}
         onFicha={() => setFichaOpen(true)}
         actions={actions}
+        acceptPending={mission?.acceptedAt == null}
         showHydrants={showHydrants}
         showZones={showZones}
         setShowHydrants={setShowHydrants}
@@ -826,7 +827,7 @@ export default function MapPage() {
               <div className="flex items-start gap-3">
                 <span
                   aria-hidden="true"
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-fire bg-fire text-white"
+                  className="mission-siren grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-fire bg-fire text-white"
                   style={{ boxShadow: "0 0 0 4px color-mix(in srgb, var(--fire) 14%, transparent)" }}
                 >
                   <Siren size={22} weight="fill" />
@@ -898,7 +899,7 @@ export default function MapPage() {
                   ))}
                 </div>
               )}
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="mission-hydrants mt-2 flex flex-wrap gap-1.5">
                 {active.hydrants
                   .filter((h) => numbered.has(h.id))
                   .map((h, i) => (
