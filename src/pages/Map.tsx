@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { Map as MlMap } from "maplibre-gl";
-import { CalendarBlank, CaretDown, Clock, Crosshair, NavigationArrow, Siren, X } from "@phosphor-icons/react";
+import { CalendarBlank, CaretDown, CaretRight, ChatCircle, Clock, Crosshair, NavigationArrow, Siren, X } from "@phosphor-icons/react";
 import { db, getMeta, setMeta } from "../db/db";
 import { api } from "../lib/api";
 import { cx } from "../lib/cx";
@@ -395,6 +395,27 @@ export default function MapPage() {
   // Los cinco paneles flotantes (antes eran ventanas separadas)
   const overlays = (
     <>
+      {/* Mensaje sin leer de la central: franja superior ROJA Y PULSANTE
+          que no se va sola — un toque abre el Chat (y al abrirse queda
+          «visto»). Es el camino más corto para responder a la central.
+          Se oculta si ya hay un llamado de voz a pantalla completa. */}
+      {unreadChat > 0 && !chatOpen && !voiceCall && (
+        <button
+          type="button"
+          className="chat-alert"
+          onClick={() => setChatOpen(true)}
+          aria-label={`${unreadChat} mensaje${unreadChat > 1 ? "s" : ""} de la central sin leer. Toca para responder.`}
+        >
+          <ChatCircle size={21} weight="fill" aria-hidden="true" />
+          <span className="chat-alert-tx">
+            <strong>Mensaje de la central</strong>
+            <small>
+              {unreadChat > 1 ? `${unreadChat} sin leer · ` : ""}Toca para responder
+            </small>
+          </span>
+          <CaretRight size={16} weight="bold" aria-hidden="true" />
+        </button>
+      )}
       {chatOpen && <ChatSheet onClose={() => setChatOpen(false)} />}
       {equipoOpen && <EquipoSheet onClose={() => setEquipoOpen(false)} />}
       {misionesOpen && <MisionesSheet onClose={() => setMisionesOpen(false)} />}
@@ -593,6 +614,7 @@ export default function MapPage() {
                 </span>
               )}
             </div>
+            <p className="map-credit">© OpenStreetMap · OpenFreeMap</p>
           </div>
           <CockpitChrome
             unit={unit}
@@ -744,6 +766,7 @@ export default function MapPage() {
               </button>
             </div>
           </div>
+          <p className="map-credit">© OpenStreetMap · OpenFreeMap</p>
         </div>
       </div>
     );
@@ -924,6 +947,7 @@ export default function MapPage() {
             </button>
           </div>
         ) : null}
+        <p className="map-credit">© OpenStreetMap · OpenFreeMap</p>
       </div>
     </div>
   );

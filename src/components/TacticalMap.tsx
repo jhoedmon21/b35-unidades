@@ -96,7 +96,7 @@ export default function TacticalMap({
         style: MAP_STYLE,
         center: [-72.7106, -16.6236],
         zoom: 14,
-        attributionControl: { compact: true },
+        attributionControl: false,
       });
     } catch (e) {
       setFatal(e instanceof Error ? e.message : String(e));

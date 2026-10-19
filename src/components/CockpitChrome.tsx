@@ -223,7 +223,7 @@ export default function CockpitChrome({
             {/* Paneles de comando: el mapa es la única ventana de la app */}
             <button
               type="button"
-              className={cx("viper-chip", chatOpen && "on")}
+              className={cx("viper-chip", chatOpen && "on", chatUnread > 0 && !chatOpen && "chat-alert-chip")}
               onClick={onChatToggle}
               aria-pressed={chatOpen}
               title="Chat con la central"

@@ -36,7 +36,7 @@ export default function SceneMap({ center, title, markers = [], zoom = 15, onRea
       style: MAP_STYLE,
       center: [center.lng, center.lat],
       zoom,
-      attributionControl: { compact: true },
+      attributionControl: false,
     });
     mapRef.current = map;
     markersRef.current = null;
