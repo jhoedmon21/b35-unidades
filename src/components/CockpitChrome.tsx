@@ -180,7 +180,7 @@ export default function CockpitChrome({
       {/* Píldoras de capas del topbar — COLAPSABLES: un toque las esconde,
           otro las devuelve. UNA SOLA LÍNEA desplazable: nunca crece hacia
           abajo ni tapa el raíl (Destino · Puesto · Norte) ni los paneles. */}
-      <div className="pointer-events-none absolute left-3 top-12 z-[12] max-w-[calc(100vw-14rem)] md:max-w-[calc(100vw-21rem)]">
+      <div className="viper-chipswrap pointer-events-none absolute left-3 top-12 z-[12] max-w-[calc(100vw-15.5rem)] md:max-w-[calc(100vw-21rem)]">
         {chipsOpen ? (
           <div className="viper-chipsrow pointer-events-auto">
             <button

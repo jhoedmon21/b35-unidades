@@ -718,6 +718,7 @@
   .viper-speed strong { font-size: 16px; }
   .viper-speed span { font-size: 9px; }
   .viper-rail button { padding: 8px 10px; }
+  .viper-chipswrap { max-width: calc(100vw - 15.5rem); }
   .float-panel { padding: 14px !important; }
 }
 @media (max-width: 560px) {
@@ -727,12 +728,16 @@
   .viper-panel { padding: 9px 10px 8px; }
   .viper-speed { width: 44px; height: 44px; }
   .viper-speed strong { font-size: 15px; }
+  /* MOBILE: separar la fila de chips de los paneles de la derecha
+     (los paneles bajan a 172px y los chips ceden 16rem de vÃ­a) */
+  .viper-chipswrap { max-width: calc(100vw - 16rem); }
+  .viper-panel, .viper-maplabel { width: 172px; }
   .float-panel { padding: 12px !important; }
 }
 
 
-/* -- Píldoras de capas: UNA SOLA LÍNEA desplazable (no crece hacia abajo,
-      deja libres el raíl Destino·Puesto·Norte y los paneles derechos) -- */
+/* -- Pï¿½ldoras de capas: UNA SOLA Lï¿½NEA desplazable (no crece hacia abajo,
+      deja libres el raï¿½l Destinoï¿½Puestoï¿½Norte y los paneles derechos) -- */
 .viper-chipsrow {
   display: flex;
   gap: 8px;
