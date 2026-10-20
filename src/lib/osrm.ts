@@ -106,3 +106,91 @@ export function nearestRouteIndex(route: RouteInfo, at: { lat: number; lng: numb
   }
   return best;
 }
+
+export interface NearestRoutePoint {
+  /** Vértice inicial del segmento más cercano de la ruta */
+  index: number;
+  /** Fracción [0,1] recorrida dentro de ese segmento */
+  t: number;
+  /** Punto exacto SOBRE la geometría de la ruta (no el vértice) */
+  lat: number;
+  lng: number;
+  /** Distancia (m) desde la posición real hasta ese punto de la ruta */
+  distanceM: number;
+}
+
+const RAD = Math.PI / 180;
+const EARTH_R = 6_371_000;
+
+/**
+ * Proyección de un punto sobre un segmento, en metros.
+ * Usa una proyección equirectangular local (los tramos de OSRM son cortos,
+ * el error es despreciable) y devuelve también la fracción `t` del tramo.
+ * `cosLat` se calcula una sola vez por consulta (la ruta puede tener miles
+ * de nodos y esto corre en cada fix del GPS de la tablet).
+ */
+function projectOnSegmentM(
+  p: { lat: number; lng: number },
+  a: [number, number],
+  b: [number, number],
+  cosLat: number,
+): { t: number; distanceM: number } {
+  // Coordenadas del segmento relativas al punto (x = este, y = norte)
+  const ax = (a[1] - p.lng) * RAD * cosLat * EARTH_R;
+  const ay = (a[0] - p.lat) * RAD * EARTH_R;
+  const bx = (b[1] - p.lng) * RAD * cosLat * EARTH_R;
+  const by = (b[0] - p.lat) * RAD * EARTH_R;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len2 = dx * dx + dy * dy;
+  const t = len2 === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2));
+  return { t, distanceM: Math.hypot(ax + t * dx, ay + t * dy) };
+}
+
+/**
+ * Punto de la ruta más cercano a la unidad, proyectando sobre los SEGMENTOS
+ * (no solo sobre los vértices). Es la base para saber si el conductor se
+ * desvió y para que el «restante» avance de forma continua (estilo Uber).
+ */
+export function nearestRoutePoint(route: Pick<RouteInfo, "coords">, at: { lat: number; lng: number }): NearestRoutePoint {
+  const coords = route.coords;
+  const first = coords[0];
+  if (coords.length < 2) {
+    return {
+      index: 0,
+      t: 0,
+      lat: first?.[0] ?? at.lat,
+      lng: first?.[1] ?? at.lng,
+      distanceM: first ? haversineM(first, at) : Infinity,
+    };
+  }
+
+  const cosLat = Math.cos(at.lat * RAD);
+  let best: NearestRoutePoint = {
+    index: 0,
+    t: 0,
+    lat: first[0],
+    lng: first[1],
+    distanceM: Infinity,
+  };
+  for (let i = 0; i < coords.length - 1; i++) {
+    const a = coords[i];
+    const b = coords[i + 1];
+    const { t, distanceM } = projectOnSegmentM(at, a, b, cosLat);
+    if (distanceM < best.distanceM) {
+      best = {
+        index: i,
+        t,
+        lat: a[0] + (b[0] - a[0]) * t,
+        lng: a[1] + (b[1] - a[1]) * t,
+        distanceM,
+      };
+    }
+  }
+  return best;
+}
+
+/** Distancia (m) desde la unidad hasta la ruta — 0 si va sobre ella. */
+export function distanceToRouteM(route: Pick<RouteInfo, "coords">, at: { lat: number; lng: number }): number {
+  return nearestRoutePoint(route, at).distanceM;
+}

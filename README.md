@@ -42,6 +42,18 @@ tests/        queue.test.ts — cola + idempotencia (vitest, sin navegador)
 scripts/      gen-icons.mjs — iconos PWA generados (PNG puro)
 ```
 
+## Ruta de la misión y recalibración
+
+La ruta OSRM se pide desde la salida (cuartel) hasta el incidente y se guarda
+por misión para sobrevivir sin señal. El tramo restante, la distancia y el ETA
+se proyectan sobre el **segmento** más cercano de la traza (no sobre el vértice),
+así avanzan de forma continua aunque el GPS no caiga justo en un nodo.
+
+Si el conductor toma una ruta alterna y se aleja más de ~55 m de la traza
+(umbral ampliado según la precisión real del GPS) durante al menos 6 s y 25 m
+recorridos, la app pide una **ruta nueva desde su posición actual**, la dibuja
+y la deja cacheada. Sin red se conserva la ruta anterior y se reintenta después.
+
 ## Claves VAPID
 
 El backend (FuegoMap Admin) necesita su par de claves en `.env`:
@@ -136,7 +148,7 @@ con `sendPushToUnit()` (`src/lib/push.ts` de la central).
 ## Pruebas
 
 ```bash
-npm test   # vitest: 8 pruebas de la cola (idempotencia, reintentos, purga)
+npm test   # vitest: 13 pruebas (cola, idempotencia, purga y geometría de ruta)
 ```
 
 ## Despliegue

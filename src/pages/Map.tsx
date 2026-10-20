@@ -17,7 +17,7 @@ import { api } from "../lib/api";
 import { cx } from "../lib/cx";
 import { fmtClock, fmtDistance, fmtMinutes, hydrantLabel, timeAgo } from "../lib/format";
 import { departHtml, hydrantHtml, hydrantName, sceneHtml, unitHtml } from "../lib/markers";
-import { fetchRoute, haversineM, nearestRouteIndex, type RouteInfo } from "../lib/osrm";
+import { distanceToRouteM, fetchRoute, haversineM, nearestRoutePoint, type RouteInfo } from "../lib/osrm";
 import TacticalMap, { type TacHazard, type TacMarker } from "../components/TacticalMap";
 import SceneMap from "../components/SceneMap";
 import CockpitChrome from "../components/CockpitChrome";
@@ -119,6 +119,8 @@ export default function MapPage() {
   const [route, setRoute] = useState<RouteInfo | null>(null);
   const [routeBusy, setRouteBusy] = useState(false);
   const [routeFailed, setRouteFailed] = useState(false);
+  // Desvío detectado mientras el chofer conduce: se pide una ruta nueva
+  const [rerouting, setRerouting] = useState(false);
   const [zones, setZones] = useState<DangerZoneDTO[]>([]);
   const [map, setMap] = useState<MlMap | null>(null);
   const [sceneMap, setSceneMap] = useState<MlMap | null>(null);
@@ -237,9 +239,17 @@ export default function MapPage() {
   const scene = active ? { lat: active.incident.lat, lng: active.incident.lng } : null;
   const departure = active?.departure ?? null;
   const tripStart = departure ?? unitPos; // sin punto de salida guardado: desde donde esté
+  const routeKey = active ? `route2:${active.incident.id}` : null;
+  const activeIncidentRef = useRef<number | null>(null);
+  activeIncidentRef.current = active?.incident.id ?? null;
+  // Muestreo del desvío: primer fix fuera de ruta y siguiente intento permitido
+  const offRouteRef = useRef<{ since: number; lat: number; lng: number } | null>(null);
+  const nextRerouteAtRef = useRef(0);
 
-  // Clave de posición con precisión ~100 m: recalcular «restante» solo al avanzar de verdad
+  // Clave de posición con precisión ~100 m: reencuadrar solo al avanzar de verdad
   const unitKey = unitPos ? `${unitPos.lat.toFixed(3)};${unitPos.lng.toFixed(3)}` : "none";
+  // Clave fina (~11 m): avance del «restante» y detección de desvíos
+  const unitFixKey = unitPos ? `${unitPos.lat.toFixed(4)};${unitPos.lng.toFixed(4)}` : "none";
 
   // MODO NAVEGACIÓN (?nav=1, botón «Navegar» de la misión): la cámara se
   // deja de reencuadrar por fitKey y SIGUE a la unidad con rumbo de avance.
@@ -254,11 +264,21 @@ export default function MapPage() {
     setSearch(next, { replace: true });
   }
 
+  // Misión nueva: soltar la ruta anterior y el detector de desvío.
+  useEffect(() => {
+    setRoute(null);
+    setRouteFailed(false);
+    setRouteBusy(false);
+    setRerouting(false);
+    offRouteRef.current = null;
+    nextRerouteAtRef.current = 0;
+  }, [active?.incident.id]);
+
   // Ruta completa: salida (cuartel) → emergencia. Se calcula una vez por misión.
   useEffect(() => {
-    if (!active || !tripStart || !scene) return;
+    if (!active || !tripStart || !scene || !routeKey) return;
+    const key = routeKey;
     let cancelled = false;
-    const key = `route2:${active.incident.id}`;
     void (async () => {
       setRouteBusy(true);
       const saved = await getMeta<RouteInfo>(key);
@@ -295,23 +315,90 @@ export default function MapPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active?.incident.id, departure?.lat, departure?.lng, unitPos?.lat == null]);
+  }, [active?.incident.id, departure?.lat, departure?.lng, Boolean(tripStart)]);
 
-  // Uber: ubicar la unidad sobre la ruta → recorrido / restante
+  // RECALIBRACIÓN POR DESVÍO (estilo Uber): si el chofer toma una ruta
+  // alterna y se aleja de la traza de OSRM, se pide una ruta NUEVA desde su
+  // posición actual. Se exige desvío sostenido (≥6 s y ≥25 m recorridos
+  // fuera de la traza) para no recalcular por un salto de GPS, y se limita
+  // la frecuencia para no castigar al servidor OSRM.
+  useEffect(() => {
+    if (!active || !scene || !route || !routeKey || !unitPos) return;
+    if (routeBusy || rerouting) return;
+
+    const now = Date.now();
+    if (now < nextRerouteAtRef.current) return;
+
+    // Umbral según la precisión real del receptor (en ciudad puede dar 30 m)
+    const accuracy = position?.accuracy ?? 25;
+    const threshold = Math.min(140, Math.max(55, accuracy * 1.6));
+    const offM = distanceToRouteM(route, unitPos);
+    if (offM <= threshold) {
+      offRouteRef.current = null;
+      return;
+    }
+
+    const off = offRouteRef.current;
+    if (!off) {
+      offRouteRef.current = { since: now, lat: unitPos.lat, lng: unitPos.lng };
+      return;
+    }
+    if (now - off.since < 6_000 || haversineM(off, unitPos) < 25) return;
+    // Ya está llegando a la escena: no vale la pena otra llamada
+    if (haversineM(unitPos, scene) < 80) return;
+
+    offRouteRef.current = null;
+    nextRerouteAtRef.current = now + 15_000;
+    setRerouting(true);
+    const incidentId = active.incident.id;
+    const from = { lat: unitPos.lat, lng: unitPos.lng };
+
+    void (async () => {
+      try {
+        const osrmBase = (await getMeta<{ osrmBaseUrl?: string }>("syncConfig"))?.osrmBaseUrl;
+        const base = osrmBase || "https://router.project-osrm.org";
+        const fresh = await fetchRoute(base, from, scene);
+        if (activeIncidentRef.current !== incidentId) return; // misión cambiada
+        if (fresh) {
+          setRoute(fresh);
+          setRouteFailed(false);
+          void setMeta(`route2:${incidentId}`, fresh);
+          notify("Ruta recalculada según tu desvío", "info");
+        } else {
+          // Sin red: se conserva la ruta anterior y se reintenta más tarde
+          nextRerouteAtRef.current = Date.now() + 30_000;
+        }
+      } catch {
+        // Almacenamiento local caído: la ruta anterior sigue dibujada
+        nextRerouteAtRef.current = Date.now() + 30_000;
+      } finally {
+        if (activeIncidentRef.current === incidentId) setRerouting(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active?.incident.id, route, routeKey, unitFixKey, position?.accuracy, routeBusy, rerouting, notify]);
+
+  // Uber: ubicar la unidad sobre la ruta → recorrido / restante.
+  // La proyección es sobre el SEGMENTO (no el vértice) para que el avance,
+  // la distancia y el ETA se recalculen de forma continua.
   const progress = useMemo(() => {
     if (!route || !unitPos || route.coords.length < 2) return null;
-    const idx = nearestRouteIndex(route, unitPos);
+    const snap = nearestRoutePoint(route, unitPos);
     const n = route.coords.length;
-    const doneS = route.cumDurations[idx] ?? route.durationS * (idx / (n - 1));
-    const doneM = route.cumDistances[idx] ?? route.distanceM * (idx / (n - 1));
+    const next = Math.min(snap.index + 1, n - 1);
+    const segS = (route.cumDurations[next] ?? route.durationS) - (route.cumDurations[snap.index] ?? 0);
+    const segM = (route.cumDistances[next] ?? route.distanceM) - (route.cumDistances[snap.index] ?? 0);
+    const doneS = (route.cumDurations[snap.index] ?? 0) + segS * snap.t;
+    const doneM = (route.cumDistances[snap.index] ?? 0) + segM * snap.t;
+    const snapped: [number, number] = [snap.lat, snap.lng];
     return {
-      idx,
-      traveled: route.coords.slice(0, idx + 1) as [number, number][],
-      remaining: route.coords.slice(idx) as [number, number][],
+      idx: snap.index,
+      traveled: [...route.coords.slice(0, snap.index + 1), snapped] as [number, number][],
+      remaining: [snapped, ...route.coords.slice(next)] as [number, number][],
       etaS: Math.max(0, route.durationS - doneS),
       distM: Math.max(0, route.distanceM - doneM),
     };
-  }, [route, unitKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [route, unitFixKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cámara del modo navegación: centra la vista en la unidad y gira según
   // el rumbo del avance (norte-relativo). Con la unidad quieta no rota:
@@ -913,8 +1000,12 @@ export default function MapPage() {
                 )}
               </div>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-mut2">
-                {routeBusy && <span>Actualizando…</span>}
-                {!route && tripStart && scene && !routeBusy && (
+                {rerouting ? (
+                  <span className="text-fire">Recalculando ruta por desvío…</span>
+                ) : (
+                  routeBusy && <span>Actualizando…</span>
+                )}
+                {!route && tripStart && scene && !routeBusy && !rerouting && (
                   <span className="text-crash">Sin ruta vial (OSRM) — línea directa</span>
                 )}
                 {departure && (
