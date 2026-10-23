@@ -12,9 +12,11 @@ import {
   MapPin,
   Microphone,
   PaperPlaneTilt,
+  Plus,
   Power,
   Siren,
   Stop,
+  Trash,
   WifiHigh,
   X,
 } from "@phosphor-icons/react";
@@ -923,6 +925,194 @@ export function MisionesSheet({ onClose }: { onClose: () => void }) {
           })}
         </ul>
       )}
+    </Sheet>
+  );
+}
+
+/* ---------- TRIPULACIÓN del carro (la carga el chofer) ---------- */
+
+const CREW_ROLES = [
+  { value: "bombero", label: "Bombero" },
+  { value: "chofer", label: "Chofer" },
+  { value: "jefe_equipo", label: "Jefe de equipo" },
+  { value: "practicante", label: "Practicante" },
+] as const;
+
+interface CrewMember {
+  id: number;
+  unitId: number;
+  name: string;
+  role: string;
+  status: string;
+  joinCode: string;
+  linkedAt: string | null;
+  joinedAt: string;
+}
+
+function crewRoleLabel(role: string): string {
+  return CREW_ROLES.find((r) => r.value === role)?.label ?? "Bombero";
+}
+
+function crewInitials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0] ?? "")
+    .join("")
+    .toUpperCase();
+}
+
+export function CrewSheet({ onClose }: { onClose: () => void }) {
+  const { unit, notify } = useApp();
+  const [crew, setCrew] = useState<CrewMember[] | null>(null);
+  const [name, setName] = useState("");
+  const [role, setRole] = useState<string>("bombero");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const data = await api.get<{ crew: CrewMember[] }>("/api/units/me/crew");
+      setCrew(data.crew);
+      setError(null);
+    } catch (e) {
+      setCrew([]);
+      setError(e instanceof ApiError ? e.message : "No se pudo cargar la tripulación");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (unit) void load();
+  }, [load, unit]);
+
+  if (!unit) {
+    return (
+      <Sheet title="Tripulación" onClose={onClose}>
+        <p className="text-[12px] text-mut">
+          Inicia sesión con una unidad para cargar la tripulación del carro.
+        </p>
+      </Sheet>
+    );
+  }
+
+  async function add() {
+    const clean = name.trim();
+    if (clean.length < 2) {
+      setError("Escribe el nombre del bombero");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post("/api/units/me/crew", { name: clean, role });
+      setName("");
+      await load();
+      notify(`${clean} agregado a la tripulación`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "No se pudo agregar");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(member: CrewMember) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.del(`/api/units/me/crew/${member.id}`);
+      await load();
+      notify(`${member.name} bajó del carro`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "No se pudo quitar");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Sheet title="Tripulación" onClose={onClose}>
+      <p className="text-[11.5px] text-mut2">
+        {unit.code} · {unit.name}. La central ve esta lista al instante.
+      </p>
+
+      {crew === null ? (
+        <p className="text-[12px] text-mut">Cargando tripulación…</p>
+      ) : crew.length === 0 ? (
+        <p className="text-[12px] text-mut">Aún no hay bomberos a bordo.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {crew.map((member) => (
+            <li
+              key={member.id}
+              className="flex items-center gap-2 rounded-lg border border-line bg-panel2 px-2.5 py-2"
+            >
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-panel3 text-[11px] font-bold">
+                {crewInitials(member.name)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[12.5px] font-semibold">{member.name}</p>
+                <p className="text-[10.5px] text-mut2">{crewRoleLabel(member.role)}</p>
+                <p className="mt-1 flex items-center gap-1.5 text-[10px] text-mut2">
+                  <span className="rounded bg-panel3 px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-[0.18em] text-tx">
+                    {member.joinCode}
+                  </span>
+                  {member.linkedAt ? "app vinculada" : "código para su app"}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm px-2 py-1 text-red"
+                onClick={() => void remove(member)}
+                disabled={busy}
+                aria-label={`Quitar a ${member.name}`}
+                title="Dar de baja de la tripulación"
+              >
+                <Trash size={12} aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="rounded-lg border border-line bg-panel2 p-2.5">
+        <p className="mb-2 text-[10.5px] font-bold uppercase tracking-wider text-mut2">
+          Agregar bombero
+        </p>
+        <input
+          className="input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void add();
+          }}
+          placeholder="Nombre y apellido"
+          maxLength={60}
+          aria-label="Nombre del bombero"
+        />
+        <div className="mt-2 flex gap-2">
+          <select
+            className="input"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            aria-label="Función en el carro"
+          >
+            {CREW_ROLES.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          <button type="button" className="btn btn-blue shrink-0" onClick={() => void add()} disabled={busy}>
+            <Plus size={13} aria-hidden="true" /> Agregar
+          </button>
+        </div>
+        {error && (
+          <p role="alert" className="mt-2 text-[11.5px] font-semibold text-red">
+            {error}
+          </p>
+        )}
+      </div>
     </Sheet>
   );
 }

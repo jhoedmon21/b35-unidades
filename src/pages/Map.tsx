@@ -21,7 +21,7 @@ import { distanceToRouteM, fetchRoute, haversineM, nearestRoutePoint, type Route
 import TacticalMap, { type TacHazard, type TacMarker } from "../components/TacticalMap";
 import SceneMap from "../components/SceneMap";
 import CockpitChrome from "../components/CockpitChrome";
-import { ChatSheet, CloseSheet, EquipoSheet, FichaSheet, MisionesSheet, ReportSheet, SettingsSheet } from "../components/MapOverlays";
+import { ChatSheet, CloseSheet, CrewSheet, EquipoSheet, FichaSheet, MisionesSheet, ReportSheet, SettingsSheet } from "../components/MapOverlays";
 import { INCIDENT_STATUS_LABEL, SEVERITY_LABEL, UNIT_STATUS, incidentKind } from "../lib/status";
 import type { BasicIncidentDTO, DangerZoneDTO, HydrantDTO, MissionPayload, UnitStatus } from "../lib/types";
 import { useApp } from "../state/AppContext";
@@ -148,6 +148,7 @@ export default function MapPage() {
   const [fichaOpen, setFichaOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [equipoOpen, setEquipoOpen] = useState(false);
+  const [crewOpen, setCrewOpen] = useState(false);
   const [misionesOpen, setMisionesOpen] = useState(false);
   const [dispatchPhone, setDispatchPhone] = useState("");
   // Ficha del incidente al pie: PLEGADA en pantallas angostas — solo el
@@ -530,6 +531,7 @@ export default function MapPage() {
       )}
       {chatOpen && <ChatSheet onClose={() => setChatOpen(false)} />}
       {equipoOpen && <EquipoSheet onClose={() => setEquipoOpen(false)} />}
+      {crewOpen && <CrewSheet onClose={() => setCrewOpen(false)} />}
       {misionesOpen && <MisionesSheet onClose={() => setMisionesOpen(false)} />}
       {settingsOpen && <SettingsSheet onClose={() => setSettingsOpen(false)} />}
       {reportOpen && <ReportSheet onClose={() => setReportOpen(false)} />}
@@ -738,6 +740,8 @@ export default function MapPage() {
             exitNav={exitNav}
             chatOpen={chatOpen}
             onChatToggle={() => setChatOpen((v) => !v)}
+            crewOpen={crewOpen}
+            onCrewToggle={() => setCrewOpen((v) => !v)}
             onEquipoToggle={() => setEquipoOpen((v) => !v)}
             onMisionesToggle={() => setMisionesOpen((v) => !v)}
             onSettingsToggle={() => setSettingsOpen((v) => !v)}
@@ -776,6 +780,8 @@ export default function MapPage() {
           exitNav={exitNav}
           chatOpen={chatOpen}
           onChatToggle={() => setChatOpen((v) => !v)}
+          crewOpen={crewOpen}
+          onCrewToggle={() => setCrewOpen((v) => !v)}
           onEquipoToggle={() => setEquipoOpen((v) => !v)}
           onMisionesToggle={() => setMisionesOpen((v) => !v)}
           onSettingsToggle={() => setSettingsOpen((v) => !v)}
@@ -930,6 +936,8 @@ export default function MapPage() {
         chatUnread={unreadChat}
         chatOpen={chatOpen}
         onChatToggle={() => setChatOpen((v) => !v)}
+        crewOpen={crewOpen}
+        onCrewToggle={() => setCrewOpen((v) => !v)}
         onEquipoToggle={() => setEquipoOpen((v) => !v)}
         onMisionesToggle={() => setMisionesOpen((v) => !v)}
         onSettingsToggle={() => setSettingsOpen((v) => !v)}

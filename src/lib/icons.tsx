@@ -23,6 +23,7 @@ import {
   Siren,
   Tree,
   Truck,
+  Van,
 } from "@phosphor-icons/react";
 import type { UnitType } from "./types";
 
@@ -68,6 +69,7 @@ const UNIT_ICONS: Partial<Record<UnitType, Icon>> = {
   cisterna: Truck,
   rescate: Lifebuoy,
   ambulancia: Ambulance,
+  auxiliar: Van,
   mando: Flag,
 };
 

@@ -18,6 +18,7 @@ import {
   Drop,
   GearSix,
   NavigationArrow,
+  UsersThree,
   WarningDiamond,
   Wrench,
 } from "@phosphor-icons/react";
@@ -49,6 +50,9 @@ interface Props {
   /** Los paneles de comando son ESTADOS de /mapa: chat y ajustes flotan aquí */
   chatOpen?: boolean;
   onChatToggle?: () => void;
+  /** Tripulación a bordo de esta unidad (la carga el chofer) */
+  crewOpen?: boolean;
+  onCrewToggle?: () => void;
   /** Equipo y misiones cerradas también son paneles flotantes */
   onEquipoToggle?: () => void;
   onMisionesToggle?: () => void;
@@ -103,6 +107,8 @@ export default function CockpitChrome({
   chatUnread = 0,
   chatOpen,
   onChatToggle,
+  crewOpen,
+  onCrewToggle,
   onEquipoToggle,
   onMisionesToggle,
   onFicha,
@@ -234,6 +240,15 @@ export default function CockpitChrome({
                   {chatUnread > 9 ? "9+" : chatUnread}
                 </span>
               )}
+            </button>
+            <button
+              type="button"
+              className={cx("viper-chip", crewOpen && "on")}
+              onClick={onCrewToggle}
+              aria-pressed={crewOpen}
+              title="Tripulación a bordo: quiénes van en el carro"
+            >
+              <UsersThree size={15} aria-hidden="true" /> Tripulación
             </button>
             <button
               type="button"

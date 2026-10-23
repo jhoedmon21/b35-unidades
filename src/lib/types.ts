@@ -1,7 +1,7 @@
 // Tipos de FuegoMap Unidades (espejo de los DTO del backend)
 
 export type UnitStatus = "disponible" | "en_ruta" | "en_escena" | "regresando" | "fuera_servicio";
-export type UnitType = "bomba" | "cisterna" | "rescate" | "ambulancia" | "mando";
+export type UnitType = "bomba" | "cisterna" | "rescate" | "ambulancia" | "auxiliar" | "mando";
 export type HydrantSituation = "operativo" | "mantenimiento" | "fuera_servicio";
 
 export interface UserDTO {
